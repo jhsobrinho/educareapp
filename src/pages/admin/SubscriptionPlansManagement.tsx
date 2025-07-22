@@ -104,6 +104,20 @@ const SubscriptionPlansManagement: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Estilo CSS customizado para reduzir transparência do overlay
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .dialog-overlay-low-opacity [data-radix-dialog-overlay] {
+        background-color: rgba(0, 0, 0, 0.05) !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -433,8 +447,9 @@ const SubscriptionPlansManagement: React.FC = () => {
         </div>
 
         {/* Dialog para Criar/Editar Plano */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="dialog-overlay-low-opacity">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingPlan ? 'Editar Plano' : 'Novo Plano'}
@@ -604,8 +619,9 @@ const SubscriptionPlansManagement: React.FC = () => {
                 {editingPlan ? 'Atualizar' : 'Criar'} Plano
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </>
   );
