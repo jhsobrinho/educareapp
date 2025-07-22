@@ -9,6 +9,7 @@ import {
   Calendar,
   Settings,
   User,
+  Users,
   CreditCard,
   Crown,
   Shield
@@ -68,6 +69,11 @@ const getNavigationItems = (userRole?: string) => {
         icon: Crown,
       },
       {
+        title: "Gestão de Usuários",
+        url: "/educare-app/owner/users",
+        icon: Users,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/owner/plans",
         icon: CreditCard,
@@ -83,6 +89,11 @@ const getNavigationItems = (userRole?: string) => {
         title: "Dashboard Admin",
         url: "/educare-app/admin/dashboard",
         icon: Shield,
+      },
+      {
+        title: "Gestão de Usuários",
+        url: "/educare-app/admin/users",
+        icon: Users,
       },
       {
         title: "Gestão de Planos",

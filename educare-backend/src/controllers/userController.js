@@ -16,15 +16,15 @@ exports.listUsers = async (req, res) => {
       filter.role = req.query.role;
     }
     
-    if (req.query.isActive !== undefined) {
-      filter.isActive = req.query.isActive === 'true';
+    if (req.query.status) {
+      filter.status = req.query.status;
     }
     
     // Buscar usuários com paginação
     const { count, rows: users } = await User.findAndCountAll({
       where: filter,
       include: [{ model: Profile, as: 'profile' }],
-      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+      attributes: { exclude: ['password', 'reset_token', 'reset_token_expires', 'phone_verification_code', 'phone_verification_expires'] },
       limit,
       offset,
       order: [['createdAt', 'DESC']]
@@ -89,15 +89,15 @@ exports.updateUser = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { email, role, isActive } = req.body;
+    const { email, role, status } = req.body;
     
     // Verificar se o usuário tem permissão para atualizar os dados
     if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.id !== id) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
-    // Apenas admin/owner pode alterar role e isActive
-    if ((role || isActive !== undefined) && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    // Apenas admin/owner pode alterar role e status
+    if ((role || status !== undefined) && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Apenas administradores podem alterar role e status' });
     }
     
@@ -117,10 +117,10 @@ exports.updateUser = async (req, res) => {
       user.email = email;
     }
     
-    // Atualizar role e isActive (apenas para admin/owner)
+    // Atualizar role e status (apenas para admin/owner)
     if (req.user.role === 'admin' || req.user.role === 'owner') {
       if (role) user.role = role;
-      if (isActive !== undefined) user.isActive = isActive;
+      if (status !== undefined) user.status = status;
     }
     
     // Salvar alterações
@@ -131,7 +131,7 @@ exports.updateUser = async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        isActive: user.isActive,
+        status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }
@@ -203,7 +203,7 @@ exports.deleteUser = async (req, res) => {
     }
     
     // Soft delete (marcar como inativo)
-    user.isActive = false;
+    user.status = 'inactive';
     await user.save();
     
     return res.status(200).json({ message: 'Usuário desativado com sucesso' });
@@ -252,7 +252,7 @@ exports.updateUserStatus = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { isActive } = req.body;
+    const { status } = req.body;
     
     // Buscar usuário pelo ID
     const user = await User.findByPk(id);
@@ -262,16 +262,16 @@ exports.updateUserStatus = async (req, res) => {
     }
     
     // Atualizar status
-    user.isActive = isActive;
+    user.status = status;
     await user.save();
     
     return res.status(200).json({
-      message: `Usuário ${isActive ? 'ativado' : 'desativado'} com sucesso`,
+      message: `Status do usuário alterado com sucesso`,
       user: {
         id: user.id,
         email: user.email,
         role: user.role,
-        isActive: user.isActive,
+        status: user.status,
         updatedAt: user.updatedAt
       }
     });

@@ -38,7 +38,7 @@ exports.verifyToken = async (req, res, next) => {
         return res.status(401).json({ error: 'Usuário não encontrado' });
       }
       
-      if (!user.isActive) {
+      if (user.status !== 'active') {
         return res.status(401).json({ error: 'Usuário inativo' });
       }
       

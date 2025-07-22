@@ -18,6 +18,10 @@
 14. [Monitoramento](#monitoramento)
 15. [Troubleshooting](#troubleshooting)
 
+
+git add .
+git commit -m "mensagem descritiva"
+git push
 ---
 
 ## Pré-requisitos
@@ -88,6 +92,8 @@ sudo npm install -g pm2
 ```
 
 ### 2. PostgreSQL
+
+
 ```bash
 # Instalar PostgreSQL
 sudo apt install -y postgresql postgresql-contrib
@@ -123,7 +129,7 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo -u postgres psql
 
 # Dentro do PostgreSQL:
-CREATE USER educare_user WITH PASSWORD 'SUA_SENHA_FORTE_AQUI';
+CREATE USER educare_user WITH PASSWORD 'SEnha1@3$';
 CREATE DATABASE educare_db OWNER educare_user;
 GRANT ALL PRIVILEGES ON DATABASE educare_db TO educare_user;
 

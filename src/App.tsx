@@ -29,6 +29,7 @@ import OwnerDashboard from "./pages/admin/OwnerDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import SubscriptionPlansManagement from "./pages/admin/SubscriptionPlansManagement";
+import UserManagement from "./pages/admin/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -73,11 +74,13 @@ const App = () => (
                 <Route path="professional/analysis/:childId" element={<ChildAnalysis />} />
                 
                 {/* Admin Routes */}
-                <Route path="owner/dashboard" element={<OwnerDashboard />} />
-                <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="admin/dashboard" element={<AdminDashboard />} />
+                <Route path="admin/users" element={<UserManagement />} />
                 <Route path="admin/plans" element={<SubscriptionPlansManagement />} />
-                <Route path="admin/super" element={<SuperAdminDashboard />} />
+                <Route path="owner/dashboard" element={<OwnerDashboard />} />
+                <Route path="owner/users" element={<UserManagement />} />
+                <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
+                <Route path="super-admin/dashboard" element={<SuperAdminDashboard />} />
               </Route>
               
               {/* Academia Educare+ Routes */}
