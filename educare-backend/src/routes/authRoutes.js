@@ -111,7 +111,7 @@ router.post(
     body('email').isEmail().withMessage('Email inválido'),
     body('password').isLength({ min: 6 }).withMessage('Senha deve ter no mínimo 6 caracteres'),
     body('name').notEmpty().withMessage('Nome é obrigatório'),
-    body('role').optional().isIn(['user', 'professional', 'admin']).withMessage('Papel inválido')
+    body('role').optional().isIn(['user', 'parent', 'professional', 'admin', 'owner']).withMessage('Papel inválido')
   ],
   authController.register
 );

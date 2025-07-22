@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,8 +61,8 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
   const [isLoading, setIsLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
-  const [loadingPlans, setLoadingPlans] = useState(true);
-  const plansLoadedRef = useRef(false);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [plansLoaded, setPlansLoaded] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -79,38 +78,38 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
     },
   });
 
-  // Carregar planos públicos disponíveis (apenas uma vez)
-  useEffect(() => {
-    if (plansLoadedRef.current) return;
+  // Função para carregar planos apenas uma vez
+  const loadPlans = useCallback(async () => {
+    if (plansLoaded || loadingPlans) return;
     
-    const loadPlans = async () => {
-      try {
-        console.log('Carregando planos - única vez');
-        setLoadingPlans(true);
-        plansLoadedRef.current = true;
-        
-        const plans = await subscriptionPlansService.getPublicPlans();
-        setAvailablePlans(plans);
-        
-        // Selecionar primeiro plano automaticamente
-        if (plans.length > 0 && !form.getValues('selectedPlan')) {
-          form.setValue('selectedPlan', plans[0].id);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar planos:', error);
-        plansLoadedRef.current = false; // Permitir tentar novamente em caso de erro
-        toast({
-          variant: "destructive",
-          title: "Erro ao carregar planos",
-          description: "Não foi possível carregar os planos disponíveis.",
-        });
-      } finally {
-        setLoadingPlans(false);
+    try {
+      console.log('Carregando planos - única execução');
+      setLoadingPlans(true);
+      
+      const plans = await subscriptionPlansService.getPublicPlans();
+      setAvailablePlans(plans);
+      setPlansLoaded(true);
+      
+      // Selecionar primeiro plano automaticamente
+      if (plans.length > 0 && !form.getValues('selectedPlan')) {
+        form.setValue('selectedPlan', plans[0].id);
       }
-    };
+    } catch (error) {
+      console.error('Erro ao carregar planos:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar planos",
+        description: "Não foi possível carregar os planos disponíveis.",
+      });
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, [plansLoaded, loadingPlans, form, toast]);
 
+  // Carregar planos quando o componente for montado
+  React.useEffect(() => {
     loadPlans();
-  }, []); // Array vazio - executa apenas uma vez
+  }, [loadPlans]);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -118,69 +117,37 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
       console.log('Attempting registration with:', { 
         email: data.email, 
         name: data.name, 
+        phone: data.phone,
         role: data.role 
       });
       
-      const { data: authData, error } = await signUp(data.email, data.password, { 
-        name: data.name, 
-        role: data.role,
-        first_name: data.name.split(' ')[0] || data.name,
-        last_name: data.name.split(' ').slice(1).join(' ') || ''
-      });
+      const authResult = await signUp(
+        data.name,
+        data.email, 
+        data.password,
+        data.phone
+      );
       
-      if (error) {
-        console.error('Registration error:', error);
-        let errorMessage = "Ocorreu um erro ao criar sua conta. Por favor, tente novamente.";
-        
-        if (error.message.includes('User already registered')) {
-          errorMessage = "Este email já está cadastrado. Tente fazer login ou use outro email.";
-        } else if (error.message.includes('Password should be at least')) {
-          errorMessage = "A senha deve ter pelo menos 6 caracteres.";
-        } else if (error.message.includes('Invalid email')) {
-          errorMessage = "Por favor, insira um email válido.";
-        } else if (error.message.includes('signup is disabled')) {
-          errorMessage = "O cadastro está temporariamente desabilitado. Tente novamente mais tarde.";
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      // Check if user needs email confirmation
-      if (authData?.user && !authData.user.email_confirmed_at) {
+      if (authResult) {
+        console.log('Registration successful:', authResult);
         setRegistrationSuccess(true);
         toast({
-          title: "Cadastro realizado!",
-          description: "Verifique seu email para confirmar sua conta antes de fazer login.",
-        });
-      } else {
-        toast({
           title: "Cadastro realizado com sucesso!",
-          description: "Sua conta foi criada. Você já pode acessar o Educare.",
+          description: "Bem-vindo ao EducareApp!",
         });
         
-        // Safe redirect path handling
-        let finalRedirect = '/educare-app/dashboard';
-        
-        if (redirectPath) {
-          // Validate redirect path is safe
-          if (redirectPath.startsWith('/educare-app/') && 
-              !redirectPath.includes('/auth') &&
-              redirectPath.length < 100 &&
-              !redirectPath.includes('%')) {
-            finalRedirect = redirectPath;
-          }
-        }
-        
-        console.log('Redirecting after registration to:', finalRedirect);
-        navigate(finalRedirect, { replace: true });
+        // Redirecionar para a página de login após um breve delay
+        setTimeout(() => {
+          navigate('/educare-app/auth?action=login');
+        }, 2000);
       }
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      
+    } catch (error: unknown) {
+      console.error('Registration failed:', error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta. Tente novamente.";
       toast({
         variant: "destructive",
-        title: "Erro ao criar conta",
-        description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
+        title: "Erro no cadastro",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -195,8 +162,9 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
           <AlertDescription>
             <div className="space-y-2">
               <p className="font-medium">Cadastro realizado com sucesso!</p>
-              <p>Enviamos um email de confirmação para <strong>{form.getValues('email')}</strong>.</p>
-              <p>Por favor, verifique sua caixa de entrada e spam, e clique no link de confirmação antes de fazer login.</p>
+              <p className="text-sm text-muted-foreground">
+                Bem-vindo ao EducareApp! Você será redirecionado em instantes.
+              </p>
             </div>
           </AlertDescription>
         </Alert>

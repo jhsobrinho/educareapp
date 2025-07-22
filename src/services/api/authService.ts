@@ -103,14 +103,20 @@ export const signUpWithEmail = async (
   email: string, 
   password: string, 
   name: string,
+  phone?: string,
   role: string = 'user'
 ): Promise<AuthResult> => {
   try {
+    const requestBody: any = { email, password, name, role };
+    if (phone) {
+      requestBody.phone = phone;
+    }
+    
     const response = await httpClient.post<{
       user: AuthUser;
       token: string;
       refreshToken: string;
-    }>('/api/auth/register', { email, password, name, role }, { requiresAuth: false });
+    }>('/api/auth/register', requestBody, { requiresAuth: false });
 
     if (!response.success || !response.data) {
       return {

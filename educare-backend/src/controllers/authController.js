@@ -14,17 +14,36 @@ const generateToken = (userId) => {
 // Registrar novo usuário
 exports.register = async (req, res) => {
   try {
+    console.log('=== REGISTRO - Dados recebidos ===');
+    console.log('Body:', req.body);
+    
     // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Erros de validação:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
+    
+    console.log('Validação passou, processando registro...');
 
-    const { email, phone, password, firstName, lastName, role } = req.body;
+    const { email, phone, password, name, firstName, lastName, role } = req.body;
+
+    // Mapear role 'parent' para 'user' (compatibilidade com ENUM do banco)
+    const mappedRole = role === 'parent' ? 'user' : role;
 
     // Verificar se pelo menos email ou telefone foi fornecido
     if (!email && !phone) {
       return res.status(400).json({ error: 'É necessário fornecer email ou telefone' });
+    }
+
+    // Processar nome: usar firstName/lastName se fornecidos, ou dividir 'name'
+    let finalFirstName = firstName;
+    let finalLastName = lastName;
+    
+    if (!firstName && !lastName && name) {
+      const nameParts = name.trim().split(' ');
+      finalFirstName = nameParts[0] || name;
+      finalLastName = nameParts.slice(1).join(' ') || '';
     }
 
     // Verificar se o e-mail já está em uso (se fornecido)
@@ -48,28 +67,33 @@ exports.register = async (req, res) => {
       email,
       phone,
       password,
-      role: role || 'user'
+      name,
+      role: mappedRole || 'user',
+      status: 'active'  // Definir como ativo automaticamente para pais/users
     });
 
     // Criar perfil do usuário
     await Profile.create({
-      userId: user.id,
-      firstName,
-      lastName,
-      displayName: `${firstName} ${lastName}`
+      user_id: user.id,
+      name: name,
+      type: mappedRole === 'professional' ? 'professional' : 'parent',
+      phone: phone
     });
 
     // Gerar token JWT
     const token = generateToken(user.id);
+    const refreshToken = generateToken(user.id); // Por enquanto, mesmo token (pode ser melhorado)
 
-    // Retornar dados do usuário (sem a senha) e token
+    // Retornar dados do usuário (sem a senha), token e refreshToken
     return res.status(201).json({
       user: {
         id: user.id,
         email: user.email,
+        name: name || `${finalFirstName} ${finalLastName}`.trim(),
         role: user.role
       },
-      token
+      token,
+      refreshToken
     });
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);

@@ -198,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string, 
     email: string, 
     password: string, 
+    phone?: string,
     role: UserRole = 'parent',
     agreeTerms = true
   ): Promise<User | null> => {
@@ -213,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      const result = await signUpWithEmail(email, password, name, role);
+      const result = await signUpWithEmail(email, password, name, phone, role);
       
       if (result.success && result.user) {
         const convertedUser = convertApiUser(result.user);
