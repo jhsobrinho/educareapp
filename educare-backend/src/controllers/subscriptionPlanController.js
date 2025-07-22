@@ -7,8 +7,8 @@ exports.listPlans = async (req, res) => {
     // Buscar planos ativos e públicos
     const plans = await SubscriptionPlan.findAll({
       where: { 
-        isActive: true,
-        isPublic: true 
+        is_active: true,
+        is_public: true 
       },
       order: [['price', 'ASC']]
     });
@@ -25,7 +25,7 @@ exports.listAllPlans = async (req, res) => {
   try {
     // Buscar todos os planos
     const plans = await SubscriptionPlan.findAll({
-      order: [['price', 'ASC']]
+      order: [['sort_order', 'ASC'], ['price', 'ASC']]
     });
     
     return res.status(200).json({ plans });
@@ -48,7 +48,7 @@ exports.getPlanById = async (req, res) => {
     }
     
     // Verificar se o plano é público ou se o usuário é admin/owner
-    if (!plan.isPublic && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (!plan.is_public && req.user && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -72,15 +72,14 @@ exports.createPlan = async (req, res) => {
       name, 
       description, 
       price, 
-      interval, 
-      intervalCount, 
-      trialDays, 
+      currency,
+      billing_cycle, 
+      trial_days, 
       features, 
-      maxChildren, 
-      maxTeams, 
-      maxTeamMembers, 
-      isActive, 
-      isPublic 
+      limits,
+      is_active, 
+      is_public,
+      sort_order 
     } = req.body;
     
     // Criar plano
@@ -88,15 +87,14 @@ exports.createPlan = async (req, res) => {
       name,
       description,
       price,
-      interval,
-      intervalCount,
-      trialDays,
-      features,
-      maxChildren,
-      maxTeams,
-      maxTeamMembers,
-      isActive: isActive !== undefined ? isActive : true,
-      isPublic: isPublic !== undefined ? isPublic : true
+      currency: currency || 'BRL',
+      billing_cycle: billing_cycle || 'monthly',
+      trial_days: trial_days || 0,
+      features: features || {},
+      limits: limits || {},
+      is_active: is_active !== undefined ? is_active : true,
+      is_public: is_public !== undefined ? is_public : true,
+      sort_order: sort_order || 0
     });
     
     return res.status(201).json({ plan });
@@ -120,15 +118,14 @@ exports.updatePlan = async (req, res) => {
       name, 
       description, 
       price, 
-      interval, 
-      intervalCount, 
-      trialDays, 
+      currency,
+      billing_cycle, 
+      trial_days, 
       features, 
-      maxChildren, 
-      maxTeams, 
-      maxTeamMembers, 
-      isActive, 
-      isPublic 
+      limits,
+      is_active, 
+      is_public,
+      sort_order 
     } = req.body;
     
     // Buscar plano pelo ID
@@ -139,18 +136,17 @@ exports.updatePlan = async (req, res) => {
     }
     
     // Atualizar campos do plano
-    if (name) plan.name = name;
-    if (description) plan.description = description;
+    if (name !== undefined) plan.name = name;
+    if (description !== undefined) plan.description = description;
     if (price !== undefined) plan.price = price;
-    if (interval) plan.interval = interval;
-    if (intervalCount !== undefined) plan.intervalCount = intervalCount;
-    if (trialDays !== undefined) plan.trialDays = trialDays;
-    if (features) plan.features = features;
-    if (maxChildren !== undefined) plan.maxChildren = maxChildren;
-    if (maxTeams !== undefined) plan.maxTeams = maxTeams;
-    if (maxTeamMembers !== undefined) plan.maxTeamMembers = maxTeamMembers;
-    if (isActive !== undefined) plan.isActive = isActive;
-    if (isPublic !== undefined) plan.isPublic = isPublic;
+    if (currency !== undefined) plan.currency = currency;
+    if (billing_cycle !== undefined) plan.billing_cycle = billing_cycle;
+    if (trial_days !== undefined) plan.trial_days = trial_days;
+    if (features !== undefined) plan.features = features;
+    if (limits !== undefined) plan.limits = limits;
+    if (is_active !== undefined) plan.is_active = is_active;
+    if (is_public !== undefined) plan.is_public = is_public;
+    if (sort_order !== undefined) plan.sort_order = sort_order;
     
     // Salvar alterações
     await plan.save();
@@ -174,19 +170,19 @@ exports.deletePlan = async (req, res) => {
       return res.status(404).json({ error: 'Plano não encontrado' });
     }
     
-    // Verificar se o plano está em uso
-    const subscriptionsCount = await plan.countSubscriptions();
+    // Verificar se o plano está em uso (se houver tabela de subscriptions)
+    // const subscriptionsCount = await plan.countSubscriptions();
     
-    if (subscriptionsCount > 0) {
-      // Não excluir, apenas desativar
-      plan.isActive = false;
-      await plan.save();
-      
-      return res.status(200).json({ 
-        message: 'Plano desativado (não excluído pois possui assinaturas ativas)',
-        deactivated: true
-      });
-    }
+    // if (subscriptionsCount > 0) {
+    //   // Não excluir, apenas desativar
+    //   plan.is_active = false;
+    //   await plan.save();
+    //   
+    //   return res.status(200).json({ 
+    //     message: 'Plano desativado (não excluído pois possui assinaturas ativas)',
+    //     deactivated: true
+    //   });
+    // }
     
     // Excluir plano
     await plan.destroy();
@@ -208,8 +204,8 @@ exports.comparePlans = async (req, res) => {
       // Se não foram especificados IDs, retornar todos os planos públicos e ativos
       const plans = await SubscriptionPlan.findAll({
         where: { 
-          isActive: true,
-          isPublic: true 
+          is_active: true,
+          is_public: true 
         },
         order: [['price', 'ASC']]
       });
@@ -224,7 +220,7 @@ exports.comparePlans = async (req, res) => {
     const plans = await SubscriptionPlan.findAll({
       where: { 
         id: planIds,
-        isActive: true
+        is_active: true
       },
       order: [['price', 'ASC']]
     });
@@ -241,12 +237,12 @@ exports.comparePlans = async (req, res) => {
     
     // Extrair todas as features únicas de todos os planos
     plans.forEach(plan => {
-      if (plan.features && Array.isArray(plan.features)) {
-        plan.features.forEach(feature => {
+      if (plan.features && typeof plan.features === 'object') {
+        Object.keys(plan.features).forEach(feature => {
           if (!comparisonData.features[feature]) {
             comparisonData.features[feature] = {};
           }
-          comparisonData.features[feature][plan.id] = true;
+          comparisonData.features[feature][plan.id] = plan.features[feature];
         });
       }
     });

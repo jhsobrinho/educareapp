@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, CheckCircle, Mail, Phone } from 'lucide-react';
+import { Loader2, CheckCircle, Mail, Phone, CreditCard } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -28,6 +28,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PhoneVerification } from '@/components/auth/PhoneVerification';
+import { subscriptionPlansService, type SubscriptionPlan } from '@/services/subscriptionPlansService';
 
 // Define a specific type for the Educare app roles
 type EducareUserRole = 'parent' | 'professional';
@@ -35,9 +36,11 @@ type EducareUserRole = 'parent' | 'professional';
 const formSchema = z.object({
   name: z.string().min(3, { message: 'Por favor, insira seu nome completo.' }),
   email: z.string().email({ message: 'Por favor, insira um e-mail válido.' }),
+  phone: z.string().min(10, { message: 'Por favor, insira um telefone válido.' }),
   password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres.' }),
   confirmPassword: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres.' }),
   role: z.enum(['parent', 'professional']),
+  selectedPlan: z.string().min(1, { message: 'Por favor, selecione um plano de assinatura.' }),
   agreeTerms: z.boolean().refine(val => val === true, {
     message: 'Você precisa concordar com os termos e política de privacidade.'
   }),
@@ -58,18 +61,56 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const plansLoadedRef = useRef(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       email: '',
+      phone: '',
       password: '',
       confirmPassword: '',
       role: 'parent' as EducareUserRole,
+      selectedPlan: '',
       agreeTerms: false,
     },
   });
+
+  // Carregar planos públicos disponíveis (apenas uma vez)
+  useEffect(() => {
+    if (plansLoadedRef.current) return;
+    
+    const loadPlans = async () => {
+      try {
+        console.log('Carregando planos - única vez');
+        setLoadingPlans(true);
+        plansLoadedRef.current = true;
+        
+        const plans = await subscriptionPlansService.getPublicPlans();
+        setAvailablePlans(plans);
+        
+        // Selecionar primeiro plano automaticamente
+        if (plans.length > 0 && !form.getValues('selectedPlan')) {
+          form.setValue('selectedPlan', plans[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar planos:', error);
+        plansLoadedRef.current = false; // Permitir tentar novamente em caso de erro
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar planos",
+          description: "Não foi possível carregar os planos disponíveis.",
+        });
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+
+    loadPlans();
+  }, []); // Array vazio - executa apenas uma vez
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -224,6 +265,31 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      <Phone className="inline w-4 h-4 mr-1" />
+                      Telefone/WhatsApp *
+                    </FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="tel" 
+                        placeholder="(11) 99999-9999" 
+                        {...field} 
+                        disabled={isLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    <p className="text-xs text-gray-500">
+                      Usado para comunicação e suporte via WhatsApp
+                    </p>
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -286,6 +352,70 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="selectedPlan"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      <CreditCard className="inline w-4 h-4 mr-1" />
+                      Plano de Assinatura *
+                    </FormLabel>
+                    {loadingPlans ? (
+                      <div className="flex items-center justify-center p-4 border rounded-md">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Carregando planos...
+                      </div>
+                    ) : (
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um plano" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availablePlans.map((plan) => (
+                            <SelectItem key={plan.id} value={plan.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{plan.name}</span>
+                                <span className="text-sm text-gray-500">
+                                  R$ {Number(plan.price).toFixed(2)}/{plan.billing_cycle === 'monthly' ? 'mês' : 'ano'}
+                                  {plan.trial_days > 0 && ` • ${plan.trial_days} dias grátis`}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                    {field.value && availablePlans.length > 0 && (
+                      <div className="p-3 bg-blue-50 rounded-md">
+                        {(() => {
+                          const plan = availablePlans.find(p => p.id === field.value);
+                          return plan ? (
+                            <div>
+                              <p className="text-sm font-medium text-blue-900">{plan.name}</p>
+                              <p className="text-xs text-blue-700 mt-1">{plan.description}</p>
+                              {plan.trial_days > 0 && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✨ Teste grátis por {plan.trial_days} dias
+                                </p>
+                              )}
+                            </div>
+                          ) : null;
+                        })()
+                        }
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />

@@ -229,10 +229,14 @@ router.post(
     body('name').notEmpty().withMessage('Nome é obrigatório'),
     body('description').notEmpty().withMessage('Descrição é obrigatória'),
     body('price').isNumeric().withMessage('Preço deve ser um número'),
-    body('interval').isIn(['month', 'year']).withMessage('Intervalo deve ser month ou year'),
-    body('features').isArray().withMessage('Features deve ser um array'),
-    body('limits').isObject().withMessage('Limites deve ser um objeto'),
-    body('isPublic').optional().isBoolean().withMessage('isPublic deve ser um booleano')
+    body('currency').optional().isString().withMessage('Moeda deve ser uma string'),
+    body('billing_cycle').optional().isIn(['monthly', 'quarterly', 'semiannual', 'annual']).withMessage('Ciclo de cobrança deve ser monthly, quarterly, semiannual ou annual'),
+    body('trial_days').optional().isInt({ min: 0 }).withMessage('Dias de teste deve ser um número inteiro não negativo'),
+    body('features').optional().isObject().withMessage('Features deve ser um objeto'),
+    body('limits').optional().isObject().withMessage('Limites deve ser um objeto'),
+    body('is_public').optional().isBoolean().withMessage('is_public deve ser um booleano'),
+    body('is_active').optional().isBoolean().withMessage('is_active deve ser um booleano'),
+    body('sort_order').optional().isInt({ min: 0 }).withMessage('Ordem de exibição deve ser um número inteiro não negativo')
   ],
   subscriptionPlanController.createPlan
 );
@@ -245,11 +249,14 @@ router.put(
     body('name').optional().notEmpty().withMessage('Nome não pode ser vazio'),
     body('description').optional().notEmpty().withMessage('Descrição não pode ser vazia'),
     body('price').optional().isNumeric().withMessage('Preço deve ser um número'),
-    body('interval').optional().isIn(['month', 'year']).withMessage('Intervalo deve ser month ou year'),
-    body('features').optional().isArray().withMessage('Features deve ser um array'),
+    body('currency').optional().isString().withMessage('Moeda deve ser uma string'),
+    body('billing_cycle').optional().isIn(['monthly', 'quarterly', 'semiannual', 'annual']).withMessage('Ciclo de cobrança deve ser monthly, quarterly, semiannual ou annual'),
+    body('trial_days').optional().isInt({ min: 0 }).withMessage('Dias de teste deve ser um número inteiro não negativo'),
+    body('features').optional().isObject().withMessage('Features deve ser um objeto'),
     body('limits').optional().isObject().withMessage('Limites deve ser um objeto'),
-    body('isPublic').optional().isBoolean().withMessage('isPublic deve ser um booleano'),
-    body('isActive').optional().isBoolean().withMessage('isActive deve ser um booleano')
+    body('is_public').optional().isBoolean().withMessage('is_public deve ser um booleano'),
+    body('is_active').optional().isBoolean().withMessage('is_active deve ser um booleano'),
+    body('sort_order').optional().isInt({ min: 0 }).withMessage('Ordem de exibição deve ser um número inteiro não negativo')
   ],
   subscriptionPlanController.updatePlan
 );

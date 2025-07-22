@@ -40,24 +40,39 @@ export interface UpdateSubscriptionPlanData extends CreateSubscriptionPlanData {
 class SubscriptionPlansService {
   private getAuthHeaders() {
     const token = getStoredAuthToken();
-    return {
+    console.log('SubscriptionPlansService - Token:', token ? 'Token exists' : 'No token');
+    
+    if (!token) {
+      throw new Error('NO_TOKEN: Usuário não autenticado. Faça login novamente.');
+    }
+    
+    const headers = {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
+      Authorization: `Bearer ${token}`,
     };
+    console.log('SubscriptionPlansService - Headers:', headers);
+    return headers;
   }
 
   async getAllPlans(): Promise<SubscriptionPlan[]> {
     try {
+      console.log('getAllPlans - Making request to:', `${API_URL}/api/subscription-plans`);
       const response = await fetch(`${API_URL}/api/subscription-plans`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
       });
 
+      console.log('getAllPlans - Response status:', response.status);
+      console.log('getAllPlans - Response ok:', response.ok);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log('getAllPlans - Error response:', errorText);
         throw new Error(`Erro ao buscar planos: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('getAllPlans - Success data:', data);
       return data.plans || data;
     } catch (error) {
       console.error('Erro ao buscar planos:', error);
@@ -65,8 +80,10 @@ class SubscriptionPlansService {
     }
   }
 
+  // Método para buscar planos públicos (sem autenticação necessária)
   async getPublicPlans(): Promise<SubscriptionPlan[]> {
     try {
+      console.log('getPublicPlans - Making request to:', `${API_URL}/api/subscription-plans/public`);
       const response = await fetch(`${API_URL}/api/subscription-plans/public`, {
         method: 'GET',
         headers: {
@@ -74,17 +91,25 @@ class SubscriptionPlansService {
         },
       });
 
+      console.log('getPublicPlans - Response status:', response.status);
+      console.log('getPublicPlans - Response ok:', response.ok);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log('getPublicPlans - Error response:', errorText);
         throw new Error(`Erro ao buscar planos públicos: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('getPublicPlans - Success data:', data);
       return data.plans || data;
     } catch (error) {
       console.error('Erro ao buscar planos públicos:', error);
       throw error;
     }
   }
+
+
 
   async getPlanById(id: string): Promise<SubscriptionPlan> {
     try {
@@ -105,20 +130,28 @@ class SubscriptionPlansService {
     }
   }
 
-  async createPlan(planData: CreateSubscriptionPlanData): Promise<SubscriptionPlan> {
+  async createPlan(planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>): Promise<SubscriptionPlan> {
     try {
+      console.log('createPlan - Payload being sent:', JSON.stringify(planData, null, 2));
+      console.log('createPlan - Making request to:', `${API_URL}/api/subscription-plans`);
+      
       const response = await fetch(`${API_URL}/api/subscription-plans`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(planData),
       });
 
+      console.log('createPlan - Response status:', response.status);
+      console.log('createPlan - Response ok:', response.ok);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Erro ao criar plano: ${response.statusText}`);
+        const errorText = await response.text();
+        console.log('createPlan - Error response:', errorText);
+        throw new Error(`Erro ao criar plano: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('createPlan - Success data:', data);
       return data.plan || data;
     } catch (error) {
       console.error('Erro ao criar plano:', error);

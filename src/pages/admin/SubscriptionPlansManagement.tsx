@@ -52,6 +52,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { subscriptionPlansService, type SubscriptionPlan as APISubscriptionPlan } from '@/services/subscriptionPlansService';
+import { debugAuthStatus, testAuthEndpoint } from '@/utils/authDebug';
+import { getStoredAuthToken } from '@/utils/authStorage';
 
 // Usar o tipo da API
 type SubscriptionPlan = APISubscriptionPlan;
@@ -105,19 +107,36 @@ const SubscriptionPlansManagement: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Estilo CSS customizado para reduzir transparência do overlay
+  // Aplicar estilo CSS global para overlay branco do modal
   React.useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .dialog-overlay-low-opacity [data-radix-dialog-overlay] {
-        background-color: rgba(0, 0, 0, 0.05) !important;
-      }
-    `;
-    document.head.appendChild(style);
+    const styleId = 'subscription-modal-overlay';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        /* Estilo específico para overlay branco do modal */
+        [data-radix-dialog-overlay] {
+          background-color: white !important;
+          opacity: 0.98 !important;
+        }
+        /* Garantir que funcione em todos os estados */
+        .radix-dialog-overlay,
+        [data-state="open"][data-radix-dialog-overlay],
+        [data-radix-dialog-overlay][data-state="open"] {
+          background-color: white !important;
+          opacity: 0.98 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
     return () => {
-      document.head.removeChild(style);
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
     };
   }, []);
+
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -136,13 +155,40 @@ const SubscriptionPlansManagement: React.FC = () => {
     sort_order: 1
   });
 
-  // Verificar permissões
+  // Verificar autenticação e permissões
   useEffect(() => {
+    const token = getStoredAuthToken();
+    
+    // Se não há token, redirecionar para login
+    if (!token) {
+      console.warn('⚠️ No JWT token found - redirecting to login');
+      toast({
+        title: "Sessão Expirada",
+        description: "Você precisa fazer login novamente para acessar esta página.",
+        variant: "destructive",
+      });
+      navigate('/educare-app/login');
+      return;
+    }
+    
+    console.log('SubscriptionPlansManagement - User:', user);
+    console.log('SubscriptionPlansManagement - User role:', user?.role);
+    
+    // Debug de autenticação
+    const authStatus = debugAuthStatus();
+    console.log('Auth Status:', authStatus);
+    
+    // Se o usuário está logado mas não tem permissão
     if (user && !['owner', 'admin'].includes(user.role)) {
+      toast({
+        title: "Acesso Negado",
+        description: "Você não tem permissão para acessar esta página.",
+        variant: "destructive",
+      });
       navigate('/educare-app/dashboard');
       return;
     }
-  }, [user, navigate]);
+  }, [user, navigate, toast]);
 
   // Carregar planos
   useEffect(() => {
@@ -447,9 +493,8 @@ const SubscriptionPlansManagement: React.FC = () => {
         </div>
 
         {/* Dialog para Criar/Editar Plano */}
-        <div className="dialog-overlay-low-opacity">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
               <DialogTitle>
                 {editingPlan ? 'Editar Plano' : 'Novo Plano'}
@@ -619,9 +664,8 @@ const SubscriptionPlansManagement: React.FC = () => {
                 {editingPlan ? 'Atualizar' : 'Criar'} Plano
               </Button>
             </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );
