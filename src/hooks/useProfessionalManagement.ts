@@ -1,223 +1,160 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { listProfessionals, Professional, createProfessional, updateProfessional, deleteProfessional } from '@/services/api/professionalService';
+/**
+ * Hook simplificado para gerenciamento de profissionais
+ * Versão refatorada com estado mais limpo e robusto
+ */
 
-interface UseProfessionalManagementReturn {
-  professionals: Professional[];
-  isLoading: boolean;
-  error: string | null;
-  refreshProfessionals: () => void;
-  addProfessional: (professionalData: {
-    name: string;
-    email: string;
-    password: string;
-    role: string;
-    phone?: string;
+import { useState, useEffect, useCallback } from 'react';
+import { httpClient } from '@/services/api/httpClient';
+import { useToast } from '@/hooks/use-toast';
+
+// Tipos simplificados
+export interface Professional {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  profile?: {
+    id: string;
     profession?: string;
     specialization?: string;
-    registration_number?: string;
     bio?: string;
-  }) => Promise<boolean>;
-  updateProfessionalData: (id: string, professionalData: Partial<{
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    phone?: string;
-    profession?: string;
-    specialization?: string;
-    registration_number?: string;
-    bio?: string;
-  }>) => Promise<boolean>;
-  removeProfessional: (id: string) => Promise<boolean>;
+    city?: string;
+    state?: string;
+  };
 }
 
-export const useProfessionalManagement = (): UseProfessionalManagementReturn => {
+export interface UseProfessionalsReturn {
+  professionals: Professional[];
+  loading: boolean;
+  error: string | null;
+  total: number;
+  
+  // Ações
+  fetchProfessionals: () => Promise<void>;
+  refreshData: () => Promise<void>;
+  deleteProfessional: (id: string) => Promise<boolean>;
+}
+
+export const useProfessionalManagement = (): UseProfessionalsReturn => {
+  // Estados simples e diretos
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  
   const { toast } = useToast();
 
+  // Função principal para buscar profissionais
   const fetchProfessionals = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
 
-      const response = await listProfessionals();
+      // Requisição direta sem cache
+      const response = await httpClient.get<{
+        professionals: Professional[];
+        total: number;
+      }>('/users/professionals', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
 
       if (response.success && response.data) {
-        const professionalsArray = response.data.professionals || [];
-        setProfessionals(professionalsArray);
+        const { professionals: profList, total: totalCount } = response.data;
+        
+        // Atualizar estados de forma direta
+        setProfessionals(profList || []);
+        setTotal(totalCount || 0);
+        
+        console.log(`✅ ${profList?.length || 0} profissionais carregados`);
       } else {
-        const errorMessage = response.error || 'Erro ao carregar profissionais';
-        setError(errorMessage);
+        const errorMsg = response.error || 'Erro ao carregar profissionais';
+        setError(errorMsg);
+        setProfessionals([]);
+        setTotal(0);
+        
         toast({
-          title: "Erro ao carregar profissionais",
-          description: errorMessage,
-          variant: "destructive"
+          title: "Erro",
+          description: errorMsg,
+          variant: "destructive",
         });
       }
-    } catch (error: unknown) {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      setError(errorMsg);
+      setProfessionals([]);
+      setTotal(0);
       
-      const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao carregar profissionais";
-      setError(errorMessage);
+      console.error('Erro ao buscar profissionais:', err);
+      
       toast({
-        title: "Erro ao carregar profissionais",
-        description: errorMessage,
-        variant: "destructive"
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
-      console.log('\n=== ESTADO FINAL DO HOOK ===');
-      console.log('⏳ isLoading definido como false');
-      console.log('=== FIM REQUISIÇÃO FRONTEND ===\n');
+      setLoading(false);
     }
   }, [toast]);
 
-  const refreshProfessionals = useCallback(() => {
-    console.log('Atualizando lista de profissionais...');
-    fetchProfessionals();
+  // Função para atualizar dados (força nova requisição)
+  const refreshData = useCallback(async () => {
+    await fetchProfessionals();
   }, [fetchProfessionals]);
 
-  const addProfessional = useCallback(async (professionalData: {
-    name: string;
-    email: string;
-    password: string;
-    role: string;
-    phone?: string;
-    profession?: string;
-    specialization?: string;
-    registration_number?: string;
-    bio?: string;
-  }): Promise<boolean> => {
+  // Função para deletar profissional
+  const deleteProfessional = useCallback(async (id: string): Promise<boolean> => {
     try {
-      console.log('Criando profissional:', professionalData.email);
-      const response = await createProfessional(professionalData);
-
+      const response = await httpClient.delete(`/users/${id}`);
+      
       if (response.success) {
         toast({
-          title: "Profissional criado",
-          description: `${professionalData.name} foi adicionado com sucesso`,
-          variant: "default"
+          title: "Sucesso",
+          description: "Profissional removido com sucesso",
+          variant: "default",
         });
         
-        // Atualizar lista
+        // Atualizar lista após exclusão
         await fetchProfessionals();
         return true;
       } else {
-        const errorMessage = response.error || 'Erro ao criar profissional';
         toast({
-          title: "Erro ao criar profissional",
-          description: errorMessage,
-          variant: "destructive"
+          title: "Erro",
+          description: response.error || "Erro ao remover profissional",
+          variant: "destructive",
         });
         return false;
       }
-    } catch (error: unknown) {
-      console.error('Error in addProfessional:', error);
-      const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao criar profissional";
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
       toast({
-        title: "Erro ao criar profissional",
-        description: errorMessage,
-        variant: "destructive"
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
       });
       return false;
     }
   }, [fetchProfessionals, toast]);
 
-  const updateProfessionalData = useCallback(async (id: string, professionalData: Partial<{
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    phone?: string;
-    profession?: string;
-    specialization?: string;
-    registration_number?: string;
-    bio?: string;
-  }>): Promise<boolean> => {
-    try {
-      console.log('Atualizando profissional:', id);
-      const response = await updateProfessional(id, professionalData);
-
-      if (response.success) {
-        toast({
-          title: "Profissional atualizado",
-          description: "As informações foram atualizadas com sucesso",
-          variant: "default"
-        });
-        
-        // Atualizar lista
-        await fetchProfessionals();
-        return true;
-      } else {
-        const errorMessage = response.error || 'Erro ao atualizar profissional';
-        toast({
-          title: "Erro ao atualizar profissional",
-          description: errorMessage,
-          variant: "destructive"
-        });
-        return false;
-      }
-    } catch (error: unknown) {
-      console.error('Error in updateProfessionalData:', error);
-      const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao atualizar profissional";
-      toast({
-        title: "Erro ao atualizar profissional",
-        description: errorMessage,
-        variant: "destructive"
-      });
-      return false;
-    }
-  }, [fetchProfessionals, toast]);
-
-  const removeProfessional = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      console.log('Removendo profissional:', id);
-      const response = await deleteProfessional(id);
-
-      if (response.success) {
-        toast({
-          title: "Profissional removido",
-          description: "O profissional foi removido com sucesso",
-          variant: "default"
-        });
-        
-        // Atualizar lista
-        await fetchProfessionals();
-        return true;
-      } else {
-        const errorMessage = response.error || 'Erro ao remover profissional';
-        toast({
-          title: "Erro ao remover profissional",
-          description: errorMessage,
-          variant: "destructive"
-        });
-        return false;
-      }
-    } catch (error: unknown) {
-      console.error('Error in removeProfessional:', error);
-      const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao remover profissional";
-      toast({
-        title: "Erro ao remover profissional",
-        description: errorMessage,
-        variant: "destructive"
-      });
-      return false;
-    }
-  }, [fetchProfessionals, toast]);
-
+  // Carregar dados na inicialização
   useEffect(() => {
     fetchProfessionals();
   }, [fetchProfessionals]);
 
   return {
     professionals,
-    isLoading,
+    loading,
     error,
-    refreshProfessionals,
-    addProfessional,
-    updateProfessionalData,
-    removeProfessional
+    total,
+    fetchProfessionals,
+    refreshData,
+    deleteProfessional,
   };
 };
+
+export default useProfessionalManagement;

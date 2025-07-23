@@ -16,10 +16,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-import { useProfessionals } from '@/hooks/useProfessionalsNew';
+import { useProfessionalManagement } from '@/hooks/useProfessionalManagement';
 import { formatDate } from '@/utils/dateUtils';
 
-const AdminProfessionalsNew: React.FC = () => {
+const AdminProfessionals: React.FC = () => {
   // Hook simplificado
   const {
     professionals,
@@ -28,7 +28,7 @@ const AdminProfessionalsNew: React.FC = () => {
     total,
     refreshData,
     deleteProfessional,
-  } = useProfessionals();
+  } = useProfessionalManagement();
 
   // Estados locais para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -290,4 +290,4 @@ const AdminProfessionalsNew: React.FC = () => {
   );
 };
 
-export default AdminProfessionalsNew;
+export default AdminProfessionals;
