@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useUserManagement } from '@/hooks/useUserManagement';
-import { UserRole, User } from '@/types/auth';
+import { useProfessionalManagement } from '@/hooks/useProfessionalManagement';
+import { Professional } from '@/services/api/professionalService';
+import { UserRole } from '@/types/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,8 +19,8 @@ import httpClient from '@/services/api/httpClient';
 interface ProfessionalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  professional: User | null;
-  onSubmit: (professionalData: Partial<User>) => void;
+  professional: Professional | null;
+  onSubmit: (professionalData: Partial<Professional>) => void;
 }
 
 const ProfessionalDialog: React.FC<ProfessionalDialogProps> = ({
@@ -28,37 +29,37 @@ const ProfessionalDialog: React.FC<ProfessionalDialogProps> = ({
   professional,
   onSubmit
 }) => {
-  const [name, setName] = useState(professional?.name || '');
-  const [email, setEmail] = useState(professional?.email || '');
-  const [role, setRole] = useState<UserRole>(professional?.role || 'professional');
-  const [phone, setPhone] = useState('');
+  const [formData, setFormData] = useState({
+    name: professional?.name || '',
+    email: professional?.email || '',
+    role: professional?.role || 'professional' as UserRole,
+    phone: professional?.phone || '',
+    profession: professional?.profile?.profession || '',
+    specialization: professional?.profile?.specialization || '',
+    registration_number: professional?.profile?.registration_number || '',
+    bio: professional?.profile?.bio || ''
+  });
   
   // Reset form when professional changes
   React.useEffect(() => {
-    if (professional) {
-      setName(professional.name || '');
-      setEmail(professional.email || '');
-      setRole(professional.role || 'professional');
-      setPhone('');
-    } else {
-      setName('');
-      setEmail('');
-      setRole('professional');
-      setPhone('');
-    }
+    setFormData({
+      name: professional?.name || '',
+      email: professional?.email || '',
+      role: professional?.role || 'professional' as UserRole,
+      phone: professional?.phone || '',
+      profession: professional?.profile?.profession || '',
+      specialization: professional?.profile?.specialization || '',
+      registration_number: professional?.profile?.registration_number || '',
+      bio: professional?.profile?.bio || ''
+    });
   }, [professional]);
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      name,
-      email,
-      role,
-      ...(professional ? { id: professional.id } : {})
-    });
+    onSubmit(formData);
     onOpenChange(false);
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent variant="admin" className="bg-white border-gray-300">
@@ -67,52 +68,97 @@ const ProfessionalDialog: React.FC<ProfessionalDialogProps> = ({
             {professional ? 'Editar Profissional' : 'Novo Profissional'}
           </DialogTitle>
           <DialogDescription variant="admin" className="text-gray-700">
-            {professional 
-              ? 'Edite as informações do profissional' 
+            {professional
+              ? 'Edite as informações do profissional'
               : 'Preencha os dados para cadastrar um novo profissional'}
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name" className="text-gray-900 font-medium">Nome Completo</Label>
-            <Input 
-              id="name" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
               placeholder="Ex: Dr. João Silva"
               required
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-gray-900 font-medium">Email Profissional</Label>
-            <Input 
-              id="email" 
+            <Input
+              id="email"
               type="email"
-              value={email}
+              value={formData.email}
               className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="profissional@exemplo.com"
               required
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="phone" className="text-gray-900 font-medium">Telefone/WhatsApp</Label>
-            <Input 
-              id="phone" 
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
               placeholder="(11) 99999-9999"
             />
           </div>
-          
+
+          <div className="space-y-2">
+            <Label htmlFor="profession" className="text-gray-900 font-medium">Profissão</Label>
+            <Input
+              id="profession"
+              value={formData.profession}
+              onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
+              className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+              placeholder="Ex: Psicólogo"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="specialization" className="text-gray-900 font-medium">Especialidade</Label>
+            <Input
+              id="specialization"
+              value={formData.specialization}
+              onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+              className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+              placeholder="Ex: Psicologia Clínica"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="registration_number" className="text-gray-900 font-medium">Número de Registro</Label>
+            <Input
+              id="registration_number"
+              value={formData.registration_number}
+              onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
+              className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+              placeholder="Ex: 123456"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bio" className="text-gray-900 font-medium">Biografia</Label>
+            <Input
+              id="bio"
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              className="border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+              placeholder="Ex: Psicólogo com experiência em..."
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="role" className="text-gray-900 font-medium">Especialidade</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}>
               <SelectTrigger className="border-gray-300 bg-white text-gray-900">
                 <SelectValue placeholder="Selecione a especialidade" />
               </SelectTrigger>
@@ -125,17 +171,17 @@ const ProfessionalDialog: React.FC<ProfessionalDialogProps> = ({
               </SelectContent>
             </Select>
           </div>
-          
+
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               className="bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               type="submit"
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
@@ -149,60 +195,91 @@ const ProfessionalDialog: React.FC<ProfessionalDialogProps> = ({
 };
 
 const AdminProfessionals: React.FC = () => {
-  const { users, isLoading, addUser, updateUser, deleteUser } = useUserManagement();
+  const {
+    professionals,
+    isLoading,
+    addProfessional,
+    updateProfessionalData,
+    removeProfessional
+  } = useProfessionalManagement();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [currentProfessional, setCurrentProfessional] = useState<User | null>(null);
+  const [currentProfessional, setCurrentProfessional] = useState<Professional | null>(null);
 
-  // Filtrar apenas profissionais
-  const professionals = users.filter(user => 
-    ['professional', 'teacher', 'therapist', 'psychologist', 'specialist'].includes(user.role)
-  );
+  // Debug logs
+  console.log('AdminProfessionals - Estado atual:');
+  console.log('- professionals:', professionals);
+  console.log('- professionals.length:', professionals.length);
+  console.log('- isLoading:', isLoading);
+  console.log('- error:', error || 'nenhum erro');
 
   // Aplicar filtros
   const filteredProfessionals = professionals.filter(professional => {
     const matchesSearch = professional.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         professional.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSpecialty = selectedSpecialty === 'all' || professional.role === selectedSpecialty;
-    const matchesStatus = selectedStatus === 'all' || professional.active !== false; // Simplificado
-    
+                         professional.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         professional.profile?.profession?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         professional.profile?.specialization?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesSpecialty = selectedSpecialty === 'all' ||
+                           professional.role === selectedSpecialty ||
+                           professional.profile?.profession?.toLowerCase() === selectedSpecialty.toLowerCase() ||
+                           professional.profile?.specialization?.toLowerCase() === selectedSpecialty.toLowerCase();
+
+    const matchesStatus = selectedStatus === 'all' ||
+                         (selectedStatus === 'active' && professional.status === 'active') ||
+                         (selectedStatus === 'inactive' && professional.status === 'inactive') ||
+                         (selectedStatus === 'pending' && professional.status === 'pending');
+
     return matchesSearch && matchesSpecialty && matchesStatus;
   });
+
+  // Debug logs dos filtros
+  console.log('- filteredProfessionals:', filteredProfessionals);
+  console.log('- filteredProfessionals.length:', filteredProfessionals.length);
 
   const handleAddProfessional = () => {
     setCurrentProfessional(null);
     setDialogOpen(true);
   };
 
-  const handleEditProfessional = (professional: User) => {
+  const handleEditProfessional = (professional: Professional) => {
     setCurrentProfessional(professional);
     setDialogOpen(true);
   };
 
   const handleDeleteProfessional = (professionalId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este profissional?')) {
-      deleteUser(professionalId);
+      removeProfessional(professionalId);
     }
   };
 
-  const handleSubmitProfessional = (professionalData: Partial<User>) => {
+  const handleSubmitProfessional = async (professionalData: Partial<Professional>) => {
     if (currentProfessional) {
-      updateUser({
-        ...currentProfessional,
-        ...professionalData
-      } as User);
+      // Atualizar profissional existente
+      await updateProfessionalData(currentProfessional.id, {
+        name: professionalData.name,
+        email: professionalData.email,
+        role: professionalData.role,
+        phone: professionalData.phone,
+        profession: professionalData.profile?.profession,
+        specialization: professionalData.profile?.specialization,
+        registration_number: professionalData.profile?.registration_number,
+        bio: professionalData.profile?.bio
+      });
     } else {
-      if ('id' in professionalData) {
-        delete (professionalData as Partial<User> & { id?: string }).id;
-      }
-      
-      addUser({
+      // Criar novo profissional
+      await addProfessional({
         name: professionalData.name || '',
         email: professionalData.email || '',
+        password: '123456', // Senha padrão - deve ser alterada no primeiro login
         role: professionalData.role || 'professional',
-        password: '123456' // Senha padrão - deve ser alterada no primeiro login
+        phone: professionalData.phone,
+        profession: professionalData.profile?.profession,
+        specialization: professionalData.profile?.specialization,
+        registration_number: professionalData.profile?.registration_number,
+        bio: professionalData.profile?.bio
       });
     }
   };
@@ -257,7 +334,7 @@ const AdminProfessionals: React.FC = () => {
               Gerencie professores, terapeutas e especialistas da plataforma
             </p>
           </div>
-          
+
           <Button onClick={handleAddProfessional} className="bg-blue-600 hover:bg-blue-700">
             <UserPlus className="h-4 w-4 mr-2" />
             Novo Profissional
@@ -281,7 +358,7 @@ const AdminProfessionals: React.FC = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-gray-400" />
                 <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
@@ -297,7 +374,7 @@ const AdminProfessionals: React.FC = () => {
                     <SelectItem value="specialist">Especialista</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Todos os status" />
@@ -364,8 +441,8 @@ const AdminProfessionals: React.FC = () => {
                         <TableCell>
                           <div>
                             <div className="text-sm font-medium text-gray-900">{professional.email}</div>
-                            {professional.profile?.phoneNumber && (
-                              <div className="text-sm text-gray-500">{professional.profile.phoneNumber}</div>
+                            {professional.phone && (
+                              <div className="text-sm text-gray-500">{professional.phone}</div>
                             )}
                           </div>
                         </TableCell>
@@ -378,31 +455,27 @@ const AdminProfessionals: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={professional.active !== false ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
-                          >
-                            {professional.active !== false ? 'Ativo' : 'Inativo'}
+                          <Badge variant={professional.status === 'active' ? "default" : "secondary"}>
+                            {professional.status === 'active' ? 'Ativo' : professional.status === 'inactive' ? 'Inativo' : 'Pendente'}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-gray-500">
-                            {professional.lastLoginAt ? 
-                              new Date(professional.lastLoginAt).toLocaleDateString('pt-BR') : 
-                              'Nunca'
-                            }
+                            {professional.last_login_at ? 
+                              new Date(professional.last_login_at).toLocaleDateString('pt-BR') : 
+                              'Nunca'}
                           </span>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-gray-500">
-                            {new Date(professional.createdAt || '').toLocaleDateString('pt-BR')}
+                            {new Date(professional.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="h-8 w-8" 
                               onClick={() => handleEditProfessional(professional)}
                             >

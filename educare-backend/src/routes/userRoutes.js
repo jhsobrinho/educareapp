@@ -118,6 +118,42 @@ const isAdminOrOwner = [
 // Rota para listar todos os usuários (apenas admin/owner)
 router.get('/', isAdminOrOwner, userController.listUsers);
 
+/**
+ * @swagger
+ * /api/users/professionals:
+ *   get:
+ *     summary: Lista todos os profissionais com seus perfis
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de profissionais retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     professionals:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/User'
+ *                     total:
+ *                       type: number
+ *       401:
+ *         description: Não autorizado
+ *       403:
+ *         description: Acesso negado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/professionals', isAdminOrOwner, userController.listProfessionals);
+
 // Rota para obter um usuário pelo ID (próprio usuário ou admin/owner)
 router.get('/:id', authMiddleware.verifyToken, userController.getUserById);
 
@@ -148,5 +184,46 @@ router.patch(
   ],
   userController.updateUserStatus
 );
+
+
+
+/**
+ * @swagger
+ * /api/users/{id}/professional:
+ *   get:
+ *     summary: Busca um profissional específico com seu perfil
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID do profissional
+ *     responses:
+ *       200:
+ *         description: Profissional encontrado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Não autorizado
+ *       403:
+ *         description: Acesso negado
+ *       404:
+ *         description: Profissional não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/:id/professional', isAdminOrOwner, userController.getProfessional);
 
 module.exports = router;

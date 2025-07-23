@@ -280,3 +280,165 @@ exports.updateUserStatus = async (req, res) => {
     return res.status(500).json({ error: 'Erro ao atualizar status do usuário' });
   }
 };
+
+// Listar todos os profissionais com seus perfis
+exports.listProfessionals = async (req, res) => {
+  try {
+    console.log('Buscando profissionais com perfis...');
+    
+    // Buscar usuários com role professional e seus perfis
+    const professionals = await User.findAll({
+      where: {
+        role: 'professional'
+      },
+      include: [{
+        model: Profile,
+        as: 'profile',
+        required: false // LEFT JOIN para incluir usuários mesmo sem perfil
+      }],
+      attributes: { 
+        exclude: ['password', 'reset_token', 'reset_token_expires', 'phone_verification_code', 'phone_verification_expires'] 
+      },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    console.log(`Encontrados ${professionals.length} profissionais`);
+    
+    // Mapear dados para formato esperado pelo frontend
+    const mappedProfessionals = professionals.map(user => {
+      const userData = user.toJSON();
+      
+      return {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        status: userData.status,
+        phone: userData.phone,
+        created_at: userData.createdAt,
+        updated_at: userData.updatedAt,
+        last_login_at: userData.lastLoginAt,
+        profile: userData.profile ? {
+          id: userData.profile.id,
+          user_id: userData.profile.user_id,
+          name: userData.profile.name,
+          type: userData.profile.type,
+          phone: userData.profile.phone,
+          address: userData.profile.address,
+          city: userData.profile.city,
+          state: userData.profile.state,
+          country: userData.profile.country,
+          zip_code: userData.profile.zip_code,
+          bio: userData.profile.bio,
+          professional_id: userData.profile.professional_id,
+          professional_specialty: userData.profile.professional_specialty,
+          is_primary: userData.profile.is_primary,
+          is_verified: userData.profile.is_verified,
+          metadata: userData.profile.metadata,
+          birth_date: userData.profile.birth_date,
+          profession: userData.profile.profession,
+          specialization: userData.profile.specialization,
+          registration_number: userData.profile.registration_number,
+          preferences: userData.profile.preferences,
+          created_at: userData.profile.createdAt,
+          updated_at: userData.profile.updatedAt
+        } : null
+      };
+    });
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        professionals: mappedProfessionals,
+        total: mappedProfessionals.length
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao listar profissionais:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Erro ao buscar profissionais' 
+    });
+  }
+};
+
+// Buscar um profissional específico com seu perfil
+exports.getProfessional = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`Buscando profissional ${id}...`);
+    
+    const professional = await User.findOne({
+      where: {
+        id,
+        role: 'professional'
+      },
+      include: [{
+        model: Profile,
+        as: 'profile',
+        required: false
+      }],
+      attributes: { 
+        exclude: ['password', 'reset_token', 'reset_token_expires', 'phone_verification_code', 'phone_verification_expires'] 
+      }
+    });
+    
+    if (!professional) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Profissional não encontrado' 
+      });
+    }
+    
+    const userData = professional.toJSON();
+    
+    const mappedProfessional = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      status: userData.status,
+      phone: userData.phone,
+      created_at: userData.createdAt,
+      updated_at: userData.updatedAt,
+      last_login_at: userData.lastLoginAt,
+      profile: userData.profile ? {
+        id: userData.profile.id,
+        user_id: userData.profile.user_id,
+        name: userData.profile.name,
+        type: userData.profile.type,
+        phone: userData.profile.phone,
+        address: userData.profile.address,
+        city: userData.profile.city,
+        state: userData.profile.state,
+        country: userData.profile.country,
+        zip_code: userData.profile.zip_code,
+        bio: userData.profile.bio,
+        professional_id: userData.profile.professional_id,
+        professional_specialty: userData.profile.professional_specialty,
+        is_primary: userData.profile.is_primary,
+        is_verified: userData.profile.is_verified,
+        metadata: userData.profile.metadata,
+        birth_date: userData.profile.birth_date,
+        profession: userData.profile.profession,
+        specialization: userData.profile.specialization,
+        registration_number: userData.profile.registration_number,
+        preferences: userData.profile.preferences,
+        created_at: userData.profile.createdAt,
+        updated_at: userData.profile.updatedAt
+      } : null
+    };
+    
+    return res.status(200).json({
+      success: true,
+      data: mappedProfessional
+    });
+  } catch (error) {
+    console.error('Erro ao buscar profissional:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Erro ao buscar profissional' 
+    });
+  }
+};
