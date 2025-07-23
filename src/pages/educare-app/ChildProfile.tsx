@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
-import { useChildren } from '@/hooks/educare-app/useChildren';
+import { useCustomChildren } from '@/hooks/educare-app/useCustomChildren';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,14 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ChildProfileTabs } from '@/components/educare-app/child/ChildProfileTabs';
-import { calculateAge } from '@/utils/dateUtils';
+import { calculateAge, formatAge } from '@/utils/dateUtils';
 import { Spinner } from '@/components/ui/spinner';
 
 const ChildProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { children, isLoading } = useChildren();
+  const { children, isLoading } = useCustomChildren();
   const [activeTab, setActiveTab] = useState('info');
 
   if (!user || !id) {
@@ -55,6 +55,7 @@ const ChildProfile: React.FC = () => {
   }
 
   const age = calculateAge ? calculateAge(child.birthdate) : { years: 0, months: 0 };
+  const ageFormatted = formatAge(child.birthdate);
   const isParent = user.role === 'parent';
 
   return (
@@ -98,7 +99,7 @@ const ChildProfile: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        <span>{age.years} anos e {age.months} meses</span>
+                        <span>{ageFormatted}</span>
                       </div>
                       
                       <div className="flex items-center gap-1">
@@ -106,10 +107,10 @@ const ChildProfile: React.FC = () => {
                         <span className="capitalize">{child.gender}</span>
                       </div>
                       
-                      {child.city && (
+                      {(child as any).city && (
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          <span>{child.city}</span>
+                          <span>{(child as any).city}</span>
                         </div>
                       )}
                     </div>
@@ -119,9 +120,9 @@ const ChildProfile: React.FC = () => {
                     <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                       {isParent ? 'Filho(a)' : 'Paciente'}
                     </Badge>
-                    {child.bloodtype && (
+                    {(child as any).bloodtype && (
                       <Badge variant="outline">
-                        Tipo {child.bloodtype}
+                        Tipo {(child as any).bloodtype}
                       </Badge>
                     )}
                     
