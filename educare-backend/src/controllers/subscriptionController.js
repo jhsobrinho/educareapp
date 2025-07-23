@@ -419,6 +419,39 @@ exports.updateSubscriptionStatus = async (req, res) => {
   }
 };
 
+// Obter assinatura ativa de um usuário específico (admin/owner)
+exports.getUserActiveSubscription = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Buscar assinatura ativa do usuário específico
+    const subscription = await Subscription.findOne({
+      where: { 
+        userId, 
+        status: ['active', 'trial'] 
+      },
+      include: [{ 
+        model: SubscriptionPlan, 
+        as: 'plan',
+        attributes: ['id', 'name', 'description', 'price', 'currency', 'billing_cycle']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    if (!subscription) {
+      return res.status(404).json({ 
+        error: 'Assinatura ativa não encontrada para este usuário',
+        subscription: null 
+      });
+    }
+    
+    return res.status(200).json({ subscription });
+  } catch (error) {
+    console.error('Erro ao buscar assinatura ativa do usuário:', error);
+    return res.status(500).json({ error: 'Erro ao buscar assinatura ativa do usuário' });
+  }
+};
+
 // Listar todas as assinaturas (admin/owner)
 exports.listAllSubscriptions = async (req, res) => {
   try {

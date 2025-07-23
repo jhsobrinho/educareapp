@@ -103,14 +103,23 @@ export const signUpWithEmail = async (
   email: string, 
   password: string, 
   name: string,
+  role: string = 'user',
   phone?: string,
-  role: string = 'user'
+  plan_id?: string
 ): Promise<AuthResult> => {
   try {
-    const requestBody: any = { email, password, name, role };
+    const requestBody: Record<string, unknown> = { email, password, name, role };
     if (phone) {
       requestBody.phone = phone;
     }
+    if (plan_id) {
+      requestBody.plan_id = plan_id;
+    }
+    
+    console.log('=== DEBUG FRONTEND - Enviando para backend ===');
+    console.log('Parâmetros recebidos:', { email, password: '***', name, role, phone, plan_id });
+    console.log('RequestBody construído:', requestBody);
+    console.log('=== FIM DEBUG FRONTEND ===');
     
     const response = await httpClient.post<{
       user: AuthUser;

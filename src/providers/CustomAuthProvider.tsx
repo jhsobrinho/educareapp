@@ -63,31 +63,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Verificar se há token armazenado
         const token = getStoredAuthToken();
+        console.log('=== DEBUG AUTH INIT ===');
+        console.log('Token encontrado:', !!token);
+        console.log('Token value:', token ? token.substring(0, 20) + '...' : 'null');
         
         if (token) {
           console.log('Token encontrado, tentando restaurar sessão');
           
           // Tentar obter dados do usuário do armazenamento local
           const userData = getStoredUserData();
+          console.log('UserData encontrado:', !!userData);
+          console.log('UserData:', userData);
           
           if (userData) {
             setUser(convertApiUser(userData));
             setIsLoading(false);
             setIsInitialized(true);
             
-            // Tentar renovar o token em segundo plano
+            // Tentar renovar o token em segundo plano (sem forçar logout)
             try {
+              console.log('Tentando renovar token em segundo plano...');
               const refreshResult = await refreshAuthToken();
               if (refreshResult.success && refreshResult.user) {
+                console.log('Token renovado com sucesso');
                 setUser(convertApiUser(refreshResult.user));
               } else {
-                // Se a renovação falhar, fazer logout
-                console.warn('Falha ao renovar token, fazendo logout');
-                await handleLogout();
+                // Se a renovação falhar, manter usuário logado com token atual
+                console.warn('Falha ao renovar token, mantendo sessão atual');
+                // NÃO fazer logout - deixar o usuário continuar
               }
             } catch (error) {
               console.error('Erro ao renovar token:', error);
-              // Não fazer logout imediatamente, permitir que o usuário continue com o token atual
+              // Não fazer logout - manter sessão ativa
+              console.log('Mantendo sessão ativa apesar do erro de renovação');
             }
           } else {
             // Se não houver dados do usuário, limpar autenticação
@@ -174,6 +182,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (result.success && result.user) {
         const convertedUser = convertApiUser(result.user);
+        
+        // Debug: verificar se dados foram armazenados
+        console.log('=== DEBUG LOGIN SUCCESS ===');
+        console.log('Token armazenado:', !!getStoredAuthToken());
+        console.log('UserData armazenado:', !!getStoredUserData());
+        console.log('Converted user:', convertedUser);
+        
         setUser(convertedUser);
         return convertedUser;
       } else {
@@ -198,10 +213,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string, 
     email: string, 
     password: string, 
-    phone?: string,
     role: UserRole = 'parent',
-    agreeTerms = true
+    agreeTerms = true,
+    phone?: string,
+    plan_id?: string
   ): Promise<User | null> => {
+    // CORREÇÃO: Garantir que os parâmetros sejam mapeados corretamente
+    // Se role contém números (telefone), trocar com phone
+    let finalRole = role;
+    let finalPhone = phone;
+    let finalPlanId = plan_id;
+    
+    // Detectar se role contém telefone (apenas números)
+    if (typeof role === 'string' && /^\d+$/.test(role)) {
+      console.log('DETECTADO: role contém telefone, corrigindo parâmetros...');
+      finalPhone = role;
+      finalRole = 'parent'; // Assumir parent como padrão
+      // Preservar plan_id original que foi selecionado no formulário
+      // finalPlanId já está correto, não alterar
+    }
+    
+    console.log('=== DEBUG HANDLEREGISTER - Parâmetros corrigidos ===');
+    console.log('name:', name);
+    console.log('email:', email);
+    console.log('password:', '***');
+    console.log('finalRole:', finalRole);
+    console.log('finalPhone:', finalPhone);
+    console.log('finalPlanId:', finalPlanId);
+    console.log('=== FIM DEBUG HANDLEREGISTER ===');
+    
     if (!agreeTerms) {
       toast({
         title: 'Termos de uso',
@@ -214,7 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      const result = await signUpWithEmail(email, password, name, phone, role);
+      const result = await signUpWithEmail(email, password, name, finalRole, finalPhone, finalPlanId);
       
       if (result.success && result.user) {
         const convertedUser = convertApiUser(result.user);

@@ -45,6 +45,20 @@ import {
   User
 } from 'lucide-react';
 import { userService, UserData, UserFilters } from '@/services/userService';
+import httpClient from '@/services/api/httpClient';
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  billing_cycle: string;
+}
+
+interface UserWithPlan extends UserData {
+  subscriptionPlan?: SubscriptionPlan;
+}
 
 
 
@@ -56,9 +70,68 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
   const [totalUsers, setTotalUsers] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [usersWithPlans, setUsersWithPlans] = useState<UserWithPlan[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  // Buscar planos de assinatura disponíveis
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoadingPlans(true);
+        const response = await httpClient.get<{plans: SubscriptionPlan[]}>('/api/subscription-plans');
+        if (response.success && response.data) {
+          setAvailablePlans(response.data.plans || []);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar planos:', error);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    
+    fetchPlans();
+  }, []);
+
+  // Buscar dados dos planos dos usuários
+  useEffect(() => {
+    const fetchUsersWithPlans = async () => {
+      if (users.length === 0) return;
+      
+      try {
+        const usersWithPlanData = await Promise.all(
+          users.map(async (user) => {
+            try {
+              // Buscar assinatura ativa do usuário
+              const response = await httpClient.get<{subscription: {plan: SubscriptionPlan}}>(`/api/subscriptions/user/${user.id}/active`);
+              if (response.success && response.data?.subscription?.plan) {
+                return {
+                  ...user,
+                  subscriptionPlan: response.data.subscription.plan
+                };
+              }
+            } catch (error) {
+              // Usuário pode não ter plano ativo
+              console.debug(`Usuário ${user.id} sem plano ativo`);
+            }
+            return { ...user };
+          })
+        );
+        
+        setUsersWithPlans(usersWithPlanData);
+      } catch (error) {
+        console.error('Erro ao buscar planos dos usuários:', error);
+        // Em caso de erro, usar usuários sem dados de plano
+        setUsersWithPlans(users.map(user => ({ ...user })));
+      }
+    };
+    
+    fetchUsersWithPlans();
+  }, [users]);
 
   // Carregar usuários
   useEffect(() => {
@@ -98,13 +171,16 @@ const UserManagement: React.FC = () => {
   }
 
   // Filtrar usuários
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = usersWithPlans.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    const matchesPlan = planFilter === 'all' || 
+      (planFilter === 'no-plan' && !user.subscriptionPlan) ||
+      (user.subscriptionPlan && user.subscriptionPlan.id === planFilter);
     
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch && matchesRole && matchesStatus && matchesPlan;
   });
 
   // Funções de ação
@@ -248,7 +324,7 @@ const UserManagement: React.FC = () => {
             <CardDescription>Buscar e filtrar usuários</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -284,10 +360,26 @@ const UserManagement: React.FC = () => {
                 </SelectContent>
               </Select>
 
+              <Select value={planFilter} onValueChange={setPlanFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os planos</SelectItem>
+                  <SelectItem value="no-plan">Sem plano</SelectItem>
+                  {availablePlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button variant="outline" onClick={() => {
                 setSearchTerm('');
                 setRoleFilter('all');
                 setStatusFilter('all');
+                setPlanFilter('all');
               }}>
                 <Filter className="h-4 w-4 mr-2" />
                 Limpar Filtros
@@ -313,6 +405,7 @@ const UserManagement: React.FC = () => {
                     <TableHead>Contato</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Plano</TableHead>
                     <TableHead>Último Login</TableHead>
                     <TableHead>Criado em</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -359,6 +452,18 @@ const UserManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(userData.status)}
+                      </TableCell>
+                      <TableCell>
+                        {userData.subscriptionPlan ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-purple-100 text-purple-800 border-purple-200"
+                          >
+                            {userData.subscriptionPlan.name}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-500 text-sm">Sem plano</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {userData.last_login ? (

@@ -26,7 +26,7 @@ exports.register = async (req, res) => {
     
     console.log('Validação passou, processando registro...');
 
-    const { email, phone, password, name, firstName, lastName, role } = req.body;
+    const { email, phone, password, name, firstName, lastName, role, plan_id } = req.body;
 
     // Mapear role 'parent' para 'user' (compatibilidade com ENUM do banco)
     const mappedRole = role === 'parent' ? 'user' : role;
@@ -79,6 +79,80 @@ exports.register = async (req, res) => {
       type: mappedRole === 'professional' ? 'professional' : 'parent',
       phone: phone
     });
+
+    // Criar assinatura - com plano fornecido ou plano padrão gratuito
+    const { SubscriptionPlan, Subscription } = require('../models');
+    let selectedPlanId = plan_id;
+    
+    // Se não há plano válido fornecido, buscar plano gratuito padrão
+    if (!plan_id || typeof plan_id !== 'string' || plan_id === 'undefined' || plan_id === 'true' || plan_id === 'false') {
+      console.log('Nenhum plano fornecido, buscando plano gratuito padrão...');
+      const freePlan = await SubscriptionPlan.findOne({
+        where: { 
+          name: { [require('sequelize').Op.iLike]: '%gratuito%' },
+          is_active: true,
+          is_public: true 
+        },
+        order: [['price', 'ASC']]
+      });
+      
+      if (freePlan) {
+        selectedPlanId = freePlan.id;
+        console.log('Plano gratuito encontrado:', freePlan.name, 'ID:', selectedPlanId);
+      } else {
+        console.log('Nenhum plano gratuito encontrado, criando usuário sem assinatura');
+      }
+    }
+    
+    // Criar assinatura se temos um plano válido
+    if (selectedPlanId) {
+      console.log('Criando assinatura para usuário:', user.id, 'com plano:', selectedPlanId);
+      
+      // Verificar se o plano existe
+      const plan = await SubscriptionPlan.findByPk(selectedPlanId);
+      
+      if (plan) {
+        // Calcular datas de início e fim
+        const startDate = new Date();
+        let endDate = null;
+        let nextBillingDate = null;
+        
+        if (plan.billing_cycle === 'monthly') {
+          endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + 1);
+          nextBillingDate = new Date(endDate);
+        } else if (plan.billing_cycle === 'yearly') {
+          endDate = new Date(startDate);
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          nextBillingDate = new Date(endDate);
+        }
+        
+        // Se há período de teste, ajustar as datas
+        if (plan.trial_days && plan.trial_days > 0) {
+          const trialEndDate = new Date(startDate);
+          trialEndDate.setDate(trialEndDate.getDate() + plan.trial_days);
+          nextBillingDate = new Date(trialEndDate);
+        }
+        
+        // Criar assinatura
+        const subscription = await Subscription.create({
+          userId: user.id,
+          planId: selectedPlanId,
+          status: plan.trial_days > 0 ? 'trial' : 'active',
+          startDate: startDate,
+          endDate: endDate,
+          nextBillingDate: nextBillingDate,
+          autoRenew: true,
+          childrenCount: 0,
+          usageStats: {},
+          paymentDetails: {}
+        });
+        
+        console.log('Assinatura criada com sucesso para usuário:', user.id);
+      } else {
+        console.warn('Plano não encontrado:', plan_id);
+      }
+    }
 
     // Gerar token JWT
     const token = generateToken(user.id);
@@ -152,8 +226,11 @@ exports.login = async (req, res) => {
 
     // Gerar token JWT
     const token = generateToken(user.id);
+    const refreshToken = generateToken(user.id); // Por enquanto, mesmo token (pode ser melhorado)
 
-    // Retornar dados do usuário (sem a senha) e token
+    // Logs removidos para evitar problemas
+
+    // Retornar dados do usuário (sem a senha), token e refreshToken
     return res.status(200).json({
       user: {
         id: user.id,
@@ -161,7 +238,8 @@ exports.login = async (req, res) => {
         role: user.role,
         profile: user.profile
       },
-      token
+      token,
+      refreshToken
     });
   } catch (error) {
     console.error('Erro ao fazer login:', error);
@@ -428,6 +506,56 @@ exports.verifyPhoneCode = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao verificar código de telefone:', error);
+    return res.status(500).json({ error: 'Erro ao processar solicitação' });
+  }
+};
+
+// Renovar token JWT
+exports.refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token é obrigatório' });
+    }
+
+    // Verificar e decodificar o refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (error) {
+      return res.status(401).json({ error: 'Refresh token inválido ou expirado' });
+    }
+
+    // Buscar usuário
+    const user = await User.findByPk(decoded.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Verificar se o usuário está ativo
+    if (user.status !== 'active') {
+      return res.status(401).json({ error: 'Usuário inativo' });
+    }
+
+    // Gerar novos tokens
+    const newToken = generateToken(user.id);
+    const newRefreshToken = generateToken(user.id); // Por enquanto, mesmo token (pode ser melhorado)
+
+    // Retornar dados do usuário (sem a senha) e novos tokens
+    return res.status(200).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        name: user.name,
+        role: user.role
+      },
+      token: newToken,
+      refreshToken: newRefreshToken
+    });
+  } catch (error) {
+    console.error('Erro ao renovar token:', error);
     return res.status(500).json({ error: 'Erro ao processar solicitação' });
   }
 };

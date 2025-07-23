@@ -366,4 +366,47 @@ router.post(
   authController.verifyPhoneCode
 );
 
+/**
+ * @swagger
+ * /api/auth/refresh-token:
+ *   post:
+ *     summary: Renova o token JWT usando refresh token
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: Refresh token válido
+ *     responses:
+ *       200:
+ *         description: Token renovado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 token:
+ *                   type: string
+ *                 refreshToken:
+ *                   type: string
+ *       401:
+ *         description: Refresh token inválido ou expirado
+ */
+router.post(
+  '/refresh-token',
+  [
+    body('refreshToken').notEmpty().withMessage('Refresh token é obrigatório')
+  ],
+  authController.refreshToken
+);
+
 module.exports = router;

@@ -20,7 +20,7 @@ export interface AuthContextType {
   register: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<User | null>;
   logout: () => Promise<void>;
   handleLogin: (email: string, password: string, rememberMe?: boolean) => Promise<User | null>;
-  handleRegister: (name: string, email: string, password: string, role: UserRole, agreeTerms: boolean) => Promise<User | null>;
+  handleRegister: (name: string, email: string, password: string, role: UserRole, agreeTerms: boolean, phone?: string, plan_id?: string) => Promise<User | null>;
   handleLogout: () => Promise<void>;
   showUserDropdown: boolean;
   setShowUserDropdown: (show: boolean) => void;

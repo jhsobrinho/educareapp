@@ -57,7 +57,7 @@ interface EducareRegisterFormProps {
 const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, handleRegister } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
@@ -118,14 +118,19 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
         email: data.email, 
         name: data.name, 
         phone: data.phone,
-        role: data.role 
+        role: data.role,
+        selectedPlan: data.selectedPlan
       });
       
-      const authResult = await signUp(
+      // Usar handleRegister em vez de signUp para incluir todos os parâmetros
+      const authResult = await handleRegister(
         data.name,
         data.email, 
         data.password,
-        data.phone
+        data.role,
+        data.agreeTerms,
+        data.phone,
+        data.selectedPlan
       );
       
       if (authResult) {

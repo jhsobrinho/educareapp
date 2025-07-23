@@ -37,11 +37,12 @@ const OwnerDashboard: React.FC = () => {
         setPlanMetrics(subscriptionPlanMetrics);
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os dados do dashboard.",
-          variant: "destructive",
-        });
+        // Removido toast para evitar loop infinito
+        // toast({
+        //   title: "Erro",
+        //   description: "Não foi possível carregar os dados do dashboard.",
+        //   variant: "destructive",
+        // });
       } finally {
         setLoading(false);
       }
@@ -50,7 +51,7 @@ const OwnerDashboard: React.FC = () => {
     if (hasRole('owner')) {
       loadDashboardData();
     }
-  }, [hasRole, toast]);
+  }, [hasRole]); // Removido toast das dependências
 
   // Redirect if not owner
   if (!hasRole('owner')) {

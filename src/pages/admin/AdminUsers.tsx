@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useUserManagement } from '@/hooks/useUserManagement';
 import { UserRole, User } from '@/types/auth';
@@ -13,7 +13,21 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getRoleName } from '@/utils/auth-utils';
-import { Search, UserPlus, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, Filter, CreditCard } from 'lucide-react';
+import httpClient from '@/services/api/httpClient';
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  billing_cycle: string;
+}
+
+interface UserWithPlan extends User {
+  subscriptionPlan?: SubscriptionPlan;
+}
 
 interface UserDialogProps {
   open: boolean;
@@ -138,17 +152,83 @@ const AdminUsers: React.FC = () => {
   const { users, isLoading, addUser, updateUser, deleteUser } = useUserManagement();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedPlan, setSelectedPlan] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [usersWithPlans, setUsersWithPlans] = useState<UserWithPlan[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
+  const [assignPlanDialogOpen, setAssignPlanDialogOpen] = useState(false);
+  const [userToAssignPlan, setUserToAssignPlan] = useState<User | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [loadingPlans, setLoadingPlans] = useState(false);
   
-  const filteredUsers = users.filter(user => {
+  // Buscar planos de assinatura disponíveis
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoadingPlans(true);
+        const response = await httpClient.get<{plans: SubscriptionPlan[]}>('/api/subscription-plans');
+        if (response.success && response.data) {
+          setAvailablePlans(response.data.plans || []);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar planos:', error);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    
+    fetchPlans();
+  }, []);
+  
+  // Buscar dados dos planos dos usuários
+  useEffect(() => {
+    const fetchUsersWithPlans = async () => {
+      if (users.length === 0) return;
+      
+      try {
+        const usersWithPlanData = await Promise.all(
+          users.map(async (user) => {
+            try {
+              // Buscar assinatura ativa do usuário
+              const response = await httpClient.get<{subscription: {plan: SubscriptionPlan}}>(`/api/subscriptions/user/${user.id}/active`);
+              if (response.success && response.data?.subscription?.plan) {
+                return {
+                  ...user,
+                  subscriptionPlan: response.data.subscription.plan
+                };
+              }
+            } catch (error) {
+              // Usuário pode não ter plano ativo
+              console.debug(`Usuário ${user.id} sem plano ativo`);
+            }
+            return { ...user };
+          })
+        );
+        
+        setUsersWithPlans(usersWithPlanData);
+      } catch (error) {
+        console.error('Erro ao buscar planos dos usuários:', error);
+        // Em caso de erro, usar usuários sem dados de plano
+        setUsersWithPlans(users.map(user => ({ ...user })));
+      }
+    };
+    
+    fetchUsersWithPlans();
+  }, [users]);
+  
+  const filteredUsers = usersWithPlans.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     
-    return matchesSearch && matchesRole;
+    const matchesPlan = selectedPlan === 'all' || 
+      (selectedPlan === 'no-plan' && !user.subscriptionPlan) ||
+      (user.subscriptionPlan && user.subscriptionPlan.id === selectedPlan);
+    
+    return matchesSearch && matchesRole && matchesPlan;
   });
   
   const handleAddUser = () => {
@@ -164,6 +244,42 @@ const AdminUsers: React.FC = () => {
   const handleDeleteUser = (userId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
       deleteUser(userId);
+    }
+  };
+
+  const handleAssignPlan = (user: User) => {
+    setUserToAssignPlan(user);
+    setSelectedPlanId('');
+    setAssignPlanDialogOpen(true);
+  };
+
+  const handleSubmitPlanAssignment = async () => {
+    if (!userToAssignPlan || !selectedPlanId) {
+      alert('Por favor, selecione um plano.');
+      return;
+    }
+
+    try {
+      // Criar assinatura para o usuário
+      const response = await httpClient.post('/api/subscriptions', {
+        planId: selectedPlanId,
+        userId: userToAssignPlan.id,
+        isTrial: false
+      });
+
+      if (response.success) {
+        alert('Plano atribuído com sucesso!');
+        setAssignPlanDialogOpen(false);
+        setUserToAssignPlan(null);
+        setSelectedPlanId('');
+        // Recarregar dados dos usuários com planos
+        fetchUsersWithPlans();
+      } else {
+        alert('Erro ao atribuir plano: ' + (response.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao atribuir plano:', error);
+      alert('Erro ao atribuir plano. Tente novamente.');
     }
   };
   
@@ -231,6 +347,21 @@ const AdminUsers: React.FC = () => {
                 <SelectItem value="professional">Profissionais</SelectItem>
               </SelectContent>
             </Select>
+            
+            <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por plano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os planos</SelectItem>
+                <SelectItem value="no-plan">Sem plano</SelectItem>
+                {availablePlans.map((plan) => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         
@@ -258,19 +389,20 @@ const AdminUsers: React.FC = () => {
                         <TableHead>Nome</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Função</TableHead>
+                        <TableHead>Plano</TableHead>
                         <TableHead className="w-[100px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {isLoading ? (
+                      {isLoading || loadingPlans ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8">
+                          <TableCell colSpan={5} className="text-center py-8">
                             Carregando usuários...
                           </TableCell>
                         </TableRow>
                       ) : filteredUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8">
+                          <TableCell colSpan={5} className="text-center py-8">
                             Nenhum usuário encontrado
                           </TableCell>
                         </TableRow>
@@ -292,7 +424,28 @@ const AdminUsers: React.FC = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>
+                              {user.subscriptionPlan ? (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-purple-100 text-purple-800 border-purple-200"
+                                >
+                                  {user.subscriptionPlan.name}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-500 text-sm">Sem plano</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               <div className="flex items-center gap-2">
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
+                                  onClick={() => handleAssignPlan(user)}
+                                  title="Atribuir Plano"
+                                >
+                                  <CreditCard className="h-4 w-4" />
+                                </Button>
                                 <Button 
                                   size="icon" 
                                   variant="ghost" 

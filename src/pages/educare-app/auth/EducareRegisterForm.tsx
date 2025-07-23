@@ -120,8 +120,21 @@ const EducareRegisterForm: React.FC = () => {
         return;
       }
 
-      // TODO: Integrar telefone e plano no registro
-      await handleRegister(name, email, password, role, agreeTerms);
+      // Integrar telefone e plano no registro
+      console.log('=== DEBUG FORMULARIO - Chamando handleRegister ===');
+      console.log('name:', name);
+      console.log('email:', email);
+      console.log('password:', '***');
+      console.log('role:', role);
+      console.log('agreeTerms:', agreeTerms);
+      console.log('phone:', phone);
+      console.log('selectedPlan:', selectedPlan);
+      console.log('selectedPlan type:', typeof selectedPlan);
+      console.log('selectedPlan length:', selectedPlan?.length);
+      console.log('availablePlans:', availablePlans.map(p => ({ id: p.id, name: p.name })));
+      console.log('=== FIM DEBUG FORMULARIO ===');
+      
+      await handleRegister(name, email, password, 'parent', agreeTerms, phone, selectedPlan);
       
       // Set app-specific login flag
       localStorage.setItem('educareAppLoggedIn', 'true');
