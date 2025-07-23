@@ -34,6 +34,7 @@ export interface UseProfessionalsReturn {
   // Ações
   fetchProfessionals: () => Promise<void>;
   refreshData: () => Promise<void>;
+  updateProfessional: (id: string, data: Partial<Professional>) => Promise<boolean>;
   deleteProfessional: (id: string) => Promise<boolean>;
 }
 
@@ -107,6 +108,40 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
     await fetchProfessionals();
   }, [fetchProfessionals]);
 
+  // Função para atualizar profissional
+  const updateProfessional = useCallback(async (id: string, data: Partial<Professional>): Promise<boolean> => {
+    try {
+      const response = await httpClient.put(`/users/${id}`, data);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Profissional atualizado com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista após edição
+        await fetchProfessionals();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao atualizar profissional",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [fetchProfessionals, toast]);
+
   // Função para deletar profissional
   const deleteProfessional = useCallback(async (id: string): Promise<boolean> => {
     try {
@@ -153,6 +188,7 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
     total,
     fetchProfessionals,
     refreshData,
+    updateProfessional,
     deleteProfessional,
   };
 };

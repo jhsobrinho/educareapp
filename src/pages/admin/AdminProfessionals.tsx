@@ -16,8 +16,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-import { useProfessionalManagement } from '@/hooks/useProfessionalManagement';
+import { useProfessionalManagement, Professional } from '@/hooks/useProfessionalManagement';
 import { formatDate } from '@/utils/dateUtils';
+import EditProfessionalModal from '@/components/admin/EditProfessionalModal';
 
 const AdminProfessionals: React.FC = () => {
   // Hook simplificado
@@ -27,6 +28,7 @@ const AdminProfessionals: React.FC = () => {
     error,
     total,
     refreshData,
+    updateProfessional,
     deleteProfessional,
   } = useProfessionalManagement();
 
@@ -34,6 +36,10 @@ const AdminProfessionals: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+  // Estados para edição
+  const [editingProfessional, setEditingProfessional] = useState<Professional | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Filtrar profissionais localmente
   const filteredProfessionals = professionals.filter(prof => {
@@ -45,6 +51,29 @@ const AdminProfessionals: React.FC = () => {
     
     return matchesSearch && matchesStatus;
   });
+
+  // Função para abrir modal de edição
+  const handleEdit = (professional: Professional) => {
+    setEditingProfessional(professional);
+    setIsEditModalOpen(true);
+  };
+
+  // Função para fechar modal de edição
+  const handleCloseEditModal = () => {
+    setEditingProfessional(null);
+    setIsEditModalOpen(false);
+  };
+
+  // Função para salvar edição
+  const handleSaveEdit = async (updatedData: Partial<Professional>) => {
+    if (!editingProfessional) return false;
+    
+    const success = await updateProfessional(editingProfessional.id, updatedData);
+    if (success) {
+      handleCloseEditModal();
+    }
+    return success;
+  };
 
   // Função para confirmar exclusão
   const handleDelete = async () => {
@@ -245,7 +274,7 @@ const AdminProfessionals: React.FC = () => {
                                 <Eye className="mr-2 h-4 w-4" />
                                 Visualizar
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEdit(professional)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar
                               </DropdownMenuItem>
@@ -285,6 +314,14 @@ const AdminProfessionals: React.FC = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Modal de edição */}
+        <EditProfessionalModal
+          professional={editingProfessional}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveEdit}
+        />
       </div>
     </>
   );
