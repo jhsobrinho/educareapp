@@ -29,15 +29,8 @@ const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
 
-  // Buscar membros quando modal abrir
-  useEffect(() => {
-    if (isOpen && team) {
-      handleFetchMembers();
-    }
-  }, [isOpen, team]);
-
   // Função para buscar membros
-  const handleFetchMembers = async () => {
+  const handleFetchMembers = useCallback(async () => {
     if (!team) return;
 
     setLoading(true);
@@ -50,7 +43,14 @@ const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [team, fetchMembers]);
+
+  // Buscar membros quando modal abrir
+  useEffect(() => {
+    if (isOpen && team) {
+      handleFetchMembers();
+    }
+  }, [isOpen, team, handleFetchMembers]);
 
   // Função para fechar modal
   const handleClose = () => {

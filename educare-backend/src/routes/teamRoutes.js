@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const teamController = require('../controllers/teamController');
-const auth = require('../middlewares/auth');
+const { verifyToken } = require('../middlewares/auth');
 const { body, param, query } = require('express-validator');
 
 /**
@@ -94,7 +94,7 @@ const { body, param, query } = require('express-validator');
  *                     total:
  *                       type: integer
  */
-router.get('/', auth, teamController.listTeams);
+router.get('/', verifyToken, teamController.listTeams);
 
 /**
  * @swagger
@@ -129,7 +129,7 @@ router.get('/', auth, teamController.listTeams);
  *         description: Equipe criada com sucesso
  */
 router.post('/', 
-  auth,
+  verifyToken,
   [
     body('name').notEmpty().withMessage('Nome é obrigatório'),
     body('type').optional().isIn(['professional', 'educational', 'family', 'other']),
@@ -160,7 +160,7 @@ router.post('/',
  *         description: Equipe não encontrada
  */
 router.get('/:id', 
-  auth,
+  verifyToken,
   [param('id').isUUID().withMessage('ID inválido')],
   teamController.getTeam
 );
@@ -205,7 +205,7 @@ router.get('/:id',
  *         description: Equipe atualizada com sucesso
  */
 router.put('/:id',
-  auth,
+  verifyToken,
   [
     param('id').isUUID().withMessage('ID inválido'),
     body('name').optional().notEmpty().withMessage('Nome não pode ser vazio'),
@@ -236,7 +236,7 @@ router.put('/:id',
  *         description: Equipe removida com sucesso
  */
 router.delete('/:id',
-  auth,
+  verifyToken,
   [param('id').isUUID().withMessage('ID inválido')],
   teamController.deleteTeam
 );
@@ -261,7 +261,7 @@ router.delete('/:id',
  *         description: Lista de membros da equipe
  */
 router.get('/:teamId/members',
-  auth,
+  verifyToken,
   [param('teamId').isUUID().withMessage('ID da equipe inválido')],
   teamController.listMembers
 );
@@ -303,7 +303,7 @@ router.get('/:teamId/members',
  *         description: Convite enviado com sucesso
  */
 router.post('/:teamId/invite',
-  auth,
+  verifyToken,
   [
     param('teamId').isUUID().withMessage('ID da equipe inválido'),
     body('userId').isUUID().withMessage('ID do usuário inválido'),
@@ -353,7 +353,7 @@ router.post('/:teamId/invite',
  *         description: Membro atualizado com sucesso
  */
 router.put('/:teamId/members/:memberId',
-  auth,
+  verifyToken,
   [
     param('teamId').isUUID().withMessage('ID da equipe inválido'),
     param('memberId').isUUID().withMessage('ID do membro inválido'),
@@ -389,7 +389,7 @@ router.put('/:teamId/members/:memberId',
  *         description: Membro removido com sucesso
  */
 router.delete('/:teamId/members/:memberId',
-  auth,
+  verifyToken,
   [
     param('teamId').isUUID().withMessage('ID da equipe inválido'),
     param('memberId').isUUID().withMessage('ID do membro inválido')
@@ -426,7 +426,7 @@ router.delete('/:teamId/members/:memberId',
  *         description: Lista de usuários disponíveis para convite
  */
 router.get('/:teamId/search-users',
-  auth,
+  verifyToken,
   [
     param('teamId').isUUID().withMessage('ID da equipe inválido'),
     query('role').optional().isIn(['professional', 'user', 'all'])

@@ -13,7 +13,8 @@ import {
   CreditCard,
   Crown,
   Shield,
-  GraduationCap
+  GraduationCap,
+  UserCheck
 } from 'lucide-react';
 import {
   Sidebar,
@@ -80,6 +81,11 @@ const getNavigationItems = (userRole?: string) => {
         icon: GraduationCap,
       },
       {
+        title: "Gestão de Equipes",
+        url: "/educare-app/owner/teams",
+        icon: UserCheck,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/owner/plans",
         icon: CreditCard,
@@ -105,6 +111,11 @@ const getNavigationItems = (userRole?: string) => {
         title: "Gestão de Profissionais",
         url: "/educare-app/admin/professionals",
         icon: GraduationCap,
+      },
+      {
+        title: "Gestão de Equipes",
+        url: "/educare-app/admin/teams",
+        icon: UserCheck,
       },
       {
         title: "Gestão de Planos",
