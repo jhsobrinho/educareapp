@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { EnhancedAppSidebar } from '@/components/educare-app/layout/EnhancedAppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
@@ -12,6 +12,7 @@ import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 const EducareAppLayout: React.FC = () => {
   const { user, isLoading } = useAuth();
   const breadcrumbs = useBreadcrumbs();
+  const location = useLocation();
   
   // Show loading while auth is loading
   if (isLoading) {
@@ -28,6 +29,20 @@ const EducareAppLayout: React.FC = () => {
   // Redirect to auth if not authenticated
   if (!user) {
     return <Navigate to="/educare-app/auth" replace />;
+  }
+
+  // Redirect professionals to their dashboard if they try to access other areas
+  if (user.role === 'professional') {
+    const allowedPaths = [
+      '/educare-app/professional/dashboard',
+      '/educare-app/settings'
+    ];
+    
+    const isAllowedPath = allowedPaths.some(path => location.pathname.startsWith(path));
+    
+    if (!isAllowedPath) {
+      return <Navigate to="/educare-app/professional/dashboard" replace />;
+    }
   }
 
   return (

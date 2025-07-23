@@ -1,7 +1,100 @@
-const { User, Profile, Subscription, SubscriptionPlan, Team, TeamMember } = require('../models');
+const { User, Profile, Subscription, SubscriptionPlan, Team, TeamMember, Child } = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
 
-// Métricas principais do dashboard
+// Métricas do dashboard do usuário (parent/professional)
+exports.getUserDashboardMetrics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    // Buscar perfil do usuário
+    const profile = await Profile.findOne({ where: { userId } });
+    
+    if (!profile) {
+      return res.status(404).json({ error: 'Perfil não encontrado' });
+    }
+    
+    // Buscar crianças do usuário
+    const children = await Child.findAll({
+      where: { profileId: profile.id },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    // Para cada criança, calcular métricas básicas
+    const childrenWithProgress = children.map(child => {
+      // Simular progresso (em produção, seria calculado baseado em sessões/respostas)
+      const calculatedProgress = Math.floor(Math.random() * 100);
+      const sessionCount = Math.floor(Math.random() * 10);
+      const reportCount = Math.floor(Math.random() * 5);
+      const responseCount = Math.floor(Math.random() * 20);
+      const hasActiveSession = Math.random() > 0.7;
+      
+      return {
+        ...child.toJSON(),
+        calculatedProgress,
+        sessionCount,
+        reportCount,
+        responseCount,
+        hasActiveSession
+      };
+    });
+    
+    // Calcular métricas gerais
+    const totalChildren = children.length;
+    const childrenInProgress = childrenWithProgress.filter(c => c.calculatedProgress > 0 && c.calculatedProgress < 100).length;
+    const completedJourneys = childrenWithProgress.filter(c => c.calculatedProgress >= 100).length;
+    const totalSessions = childrenWithProgress.reduce((sum, c) => sum + c.sessionCount, 0);
+    const activeSessions = childrenWithProgress.filter(c => c.hasActiveSession).length;
+    const completedSessions = totalSessions - activeSessions;
+    const totalReports = childrenWithProgress.reduce((sum, c) => sum + c.reportCount, 0);
+    const averageProgress = totalChildren > 0 ? 
+      Math.round(childrenWithProgress.reduce((sum, c) => sum + c.calculatedProgress, 0) / totalChildren) : 0;
+    
+    // Buscar assinatura do usuário (se for parent)
+    let subscription = null;
+    if (userRole === 'parent' || userRole === 'user') {
+      subscription = await Subscription.findOne({
+        where: { 
+          userId, 
+          status: ['active', 'trial'] 
+        },
+        include: [{ model: SubscriptionPlan, as: 'plan' }]
+      });
+    }
+    
+    const metrics = {
+      totalChildren,
+      childrenInProgress,
+      completedJourneys,
+      totalSessions,
+      activeSessions,
+      completedSessions,
+      totalReports,
+      averageProgress,
+      childrenWithProgress
+    };
+    
+    const rawData = {
+      children: childrenWithProgress,
+      sessions: [], // Será implementado quando criarmos o modelo Session
+      responses: [], // Será implementado quando criarmos o modelo Response
+      reports: [], // Será implementado quando criarmos o modelo Report
+      subscription,
+      professionalRelations: [] // Para profissionais
+    };
+    
+    return res.status(200).json({
+      metrics,
+      rawData
+    });
+    
+  } catch (error) {
+    console.error('Erro ao buscar métricas do dashboard do usuário:', error);
+    return res.status(500).json({ error: 'Erro ao buscar métricas do dashboard' });
+  }
+};
+
+// Métricas principais do dashboard (admin/owner)
 exports.getMetrics = async (req, res) => {
   try {
     // Total de usuários

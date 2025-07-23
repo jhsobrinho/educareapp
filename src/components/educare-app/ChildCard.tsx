@@ -11,6 +11,7 @@ interface ChildCardProps {
     last_name: string;
     birthdate: string;
     age: number;
+    ageFormatted?: string; // Idade formatada inteligentemente
     city?: string;
     observations?: string;
   };
@@ -41,7 +42,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onCardClick }) => {
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {child.age} {child.age === 1 ? 'ano' : 'anos'}
+              {child.ageFormatted || `${child.age} ${child.age === 1 ? 'ano' : 'anos'}`}
             </p>
           </div>
         </div>

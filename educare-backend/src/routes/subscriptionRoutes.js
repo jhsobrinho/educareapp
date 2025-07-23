@@ -210,6 +210,9 @@ router.post(
 // Rota para obter assinatura ativa de um usuário específico (apenas admin/owner)
 router.get('/user/:userId/active', isAdminOrOwner, subscriptionController.getUserActiveSubscription);
 
+// ROTA TEMPORÁRIA PARA TESTE - SEM AUTENTICAÇÃO
+router.get('/test/user/:userId/active', subscriptionController.getUserActiveSubscription);
+
 // Rota para listar todas as assinaturas (apenas admin/owner)
 router.get('/', isAdminOrOwner, subscriptionController.listAllSubscriptions);
 

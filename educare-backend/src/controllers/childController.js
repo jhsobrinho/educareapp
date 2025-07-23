@@ -73,6 +73,11 @@ exports.createChild = async (req, res) => {
     const userId = req.user.id;
     const { name, birthDate, gender, avatarUrl, notes } = req.body;
     
+    // Dividir name em firstName e lastName
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
     // Buscar perfil do usuário
     const profile = await Profile.findOne({ where: { userId } });
     
@@ -119,7 +124,8 @@ exports.createChild = async (req, res) => {
     // Criar criança
     const child = await Child.create({
       profileId: profile.id,
-      name,
+      firstName,
+      lastName,
       birthDate,
       gender,
       avatarUrl,

@@ -1,14 +1,11 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Plus, Sparkles, ArrowRight, BookOpen, Activity } from 'lucide-react';
+import { Users, Plus, Sparkles, BookOpen, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 
 const EnhancedEmptyState: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isParent = user?.role === 'parent';
 
   return (
     <div className="space-y-6">
@@ -25,43 +22,23 @@ const EnhancedEmptyState: React.FC = () => {
               </div>
             </div>
             
-            {isParent ? (
-              <>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                  Bem-vindo ao Educare+!
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Comece sua jornada adicionando informações sobre sua criança. 
-                  Nossa plataforma inteligente irá te guiar no acompanhamento do desenvolvimento infantil.
-                </p>
-                <Button 
-                  size="lg"
-                  onClick={() => navigate('/educare-app/child/new')}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Adicionar Primeira Criança
-                </Button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                  Painel Profissional
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Você ainda não foi adicionado ao acompanhamento de nenhuma criança. 
-                  Explore as ferramentas profissionais disponíveis.
-                </p>
-                <Button 
-                  size="lg"
-                  onClick={() => navigate('/educare-app/professional/dashboard')}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  Ver Painel Profissional
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </Button>
-              </>
-            )}
+            <>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                Bem-vindo ao Educare+!
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Comece sua jornada adicionando informações sobre sua criança. 
+                Nossa plataforma inteligente irá te guiar no acompanhamento do desenvolvimento infantil.
+              </p>
+              <Button 
+                size="lg"
+                onClick={() => navigate('/educare-app/child/new')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Adicionar Primeira Criança
+              </Button>
+            </>
           </div>
         </CardContent>
       </Card>

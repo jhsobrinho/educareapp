@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Plus, Search } from 'lucide-react';
-import { useSupabaseChildren } from '@/hooks/useSupabaseChildren';
+import { useCustomChildren } from '@/hooks/educare-app/useCustomChildren';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -17,7 +17,7 @@ const ScrollToTopButton = React.lazy(() => import('@/components/educare-app/Scro
 const ChildrenManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { children, isLoading, isError, refreshListing } = useSupabaseChildren();
+  const { children, isLoading, isError, refreshListing } = useCustomChildren();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 

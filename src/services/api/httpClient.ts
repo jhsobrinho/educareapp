@@ -33,6 +33,17 @@ class HttpClient {
   }
 
   /**
+   * Constrói a URL completa para o endpoint
+   */
+  private buildUrl(endpoint: string): string {
+    // Remove barra inicial se existir
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    // Adiciona /api automaticamente se não estiver presente
+    const apiEndpoint = cleanEndpoint.startsWith('api/') ? cleanEndpoint : `api/${cleanEndpoint}`;
+    return `${this.baseUrl}/${apiEndpoint}`;
+  }
+
+  /**
    * Obtém os headers padrão para requisições
    */
   private getHeaders(requiresAuth: boolean = true): Record<string, string> {
@@ -95,7 +106,7 @@ class HttpClient {
       const { requiresAuth = true } = options;
       const headers = this.getHeaders(requiresAuth);
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.buildUrl(endpoint), {
         method: 'GET',
         headers,
       });
@@ -121,7 +132,7 @@ class HttpClient {
       const { requiresAuth = true } = options;
       const headers = this.getHeaders(requiresAuth);
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.buildUrl(endpoint), {
         method: 'POST',
         headers,
         body: JSON.stringify(data),
@@ -148,7 +159,7 @@ class HttpClient {
       const { requiresAuth = true } = options;
       const headers = this.getHeaders(requiresAuth);
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.buildUrl(endpoint), {
         method: 'PUT',
         headers,
         body: JSON.stringify(data),
@@ -175,7 +186,7 @@ class HttpClient {
       const { requiresAuth = true } = options;
       const headers = this.getHeaders(requiresAuth);
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.buildUrl(endpoint), {
         method: 'PATCH',
         headers,
         body: JSON.stringify(data),
@@ -201,7 +212,7 @@ class HttpClient {
       const { requiresAuth = true } = options;
       const headers = this.getHeaders(requiresAuth);
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.buildUrl(endpoint), {
         method: 'DELETE',
         headers,
       });

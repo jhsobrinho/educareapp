@@ -12,7 +12,8 @@ import {
   Users,
   CreditCard,
   Crown,
-  Shield
+  Shield,
+  GraduationCap
 } from 'lucide-react';
 import {
   Sidebar,
@@ -74,6 +75,11 @@ const getNavigationItems = (userRole?: string) => {
         icon: Users,
       },
       {
+        title: "Gestão de Profissionais",
+        url: "/educare-app/owner/professionals",
+        icon: GraduationCap,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/owner/plans",
         icon: CreditCard,
@@ -96,11 +102,32 @@ const getNavigationItems = (userRole?: string) => {
         icon: Users,
       },
       {
+        title: "Gestão de Profissionais",
+        url: "/educare-app/admin/professionals",
+        icon: GraduationCap,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/admin/plans",
         icon: CreditCard,
       },
       ...baseItems,
+    ];
+  }
+
+  // Adicionar itens específicos para profissional
+  if (userRole === 'professional') {
+    return [
+      {
+        title: "Dashboard Profissional",
+        url: "/educare-app/professional/dashboard",
+        icon: GraduationCap,
+      },
+      {
+        title: "Configurações",
+        url: "/educare-app/settings",
+        icon: Settings,
+      },
     ];
   }
 

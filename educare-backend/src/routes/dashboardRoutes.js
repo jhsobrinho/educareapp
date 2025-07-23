@@ -38,9 +38,60 @@ const authMiddleware = require('../middlewares/auth');
 
 /**
  * @swagger
+ * /api/dashboard/user-metrics:
+ *   get:
+ *     summary: Busca métricas do dashboard do usuário (parent/professional)
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Métricas do dashboard do usuário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 metrics:
+ *                   type: object
+ *                   properties:
+ *                     totalChildren:
+ *                       type: integer
+ *                     childrenInProgress:
+ *                       type: integer
+ *                     completedJourneys:
+ *                       type: integer
+ *                     totalSessions:
+ *                       type: integer
+ *                     activeSessions:
+ *                       type: integer
+ *                     completedSessions:
+ *                       type: integer
+ *                     totalReports:
+ *                       type: integer
+ *                     averageProgress:
+ *                       type: integer
+ *                 rawData:
+ *                   type: object
+ *                   properties:
+ *                     children:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     subscription:
+ *                       type: object
+ *       401:
+ *         description: Não autorizado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/user-metrics', authMiddleware.verifyToken, dashboardController.getUserDashboardMetrics);
+
+/**
+ * @swagger
  * /api/dashboard/metrics:
  *   get:
- *     summary: Busca métricas principais do dashboard
+ *     summary: Busca métricas principais do dashboard (admin/owner)
  *     tags: [Dashboard]
  *     security:
  *       - bearerAuth: []

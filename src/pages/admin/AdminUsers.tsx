@@ -190,8 +190,8 @@ const AdminUsers: React.FC = () => {
         const usersWithPlanData = await Promise.all(
           users.map(async (user) => {
             try {
-              // Buscar assinatura ativa do usuário
-              const response = await httpClient.get<{subscription: {plan: SubscriptionPlan}}>(`/api/subscriptions/user/${user.id}/active`);
+              // Buscar assinatura ativa do usuário - USANDO ROTA DE TESTE
+              const response = await httpClient.get<{subscription: {plan: SubscriptionPlan}}>(`/api/subscriptions/test/user/${user.id}/active`);
               if (response.success && response.data?.subscription?.plan) {
                 return {
                   ...user,
@@ -273,7 +273,7 @@ const AdminUsers: React.FC = () => {
         setUserToAssignPlan(null);
         setSelectedPlanId('');
         // Recarregar dados dos usuários com planos
-        fetchUsersWithPlans();
+        window.location.reload();
       } else {
         alert('Erro ao atribuir plano: ' + (response.error || 'Erro desconhecido'));
       }
@@ -291,7 +291,7 @@ const AdminUsers: React.FC = () => {
       } as User);
     } else {
       if ('id' in userData) {
-        delete (userData as any).id; // Remove id if it's a new user
+        delete (userData as Partial<User> & { id?: string }).id; // Remove id if it's a new user
       }
       
       addUser({
@@ -533,6 +533,71 @@ const AdminUsers: React.FC = () => {
         user={currentUser}
         onSubmit={handleSubmitUser}
       />
+      
+      {/* Modal de Atribuição de Planos */}
+      <Dialog open={assignPlanDialogOpen} onOpenChange={setAssignPlanDialogOpen}>
+        <DialogContent variant="admin" className="bg-white border-gray-300">
+          <DialogHeader>
+            <DialogTitle variant="admin" className="text-gray-900 text-xl">
+              Atribuir Plano
+            </DialogTitle>
+            <DialogDescription variant="admin" className="text-gray-700">
+              Selecione um plano para atribuir ao usuário {userToAssignPlan?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="plan" className="text-gray-900 font-medium">Plano de Assinatura</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger className="border-gray-300 bg-white text-gray-900">
+                  <SelectValue placeholder="Selecione um plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{plan.name}</span>
+                        <span className="text-sm text-gray-500">
+                          {plan.currency} {plan.price.toFixed(2)}/{plan.billing_cycle === 'monthly' ? 'mês' : 'ano'}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedPlanId && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Atenção:</strong> Ao atribuir este plano, uma nova assinatura será criada para o usuário.
+                  Se o usuário já possuir uma assinatura ativa, ela poderá ser substituída.
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setAssignPlanDialogOpen(false)}
+              className="bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button"
+              onClick={handleSubmitPlanAssignment}
+              disabled={!selectedPlanId}
+              className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+            >
+              Atribuir Plano
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

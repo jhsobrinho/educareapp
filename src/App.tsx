@@ -30,6 +30,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import SubscriptionPlansManagement from "./pages/admin/SubscriptionPlansManagement";
 import UserManagement from "./pages/admin/UserManagement";
+import AdminProfessionals from "./pages/admin/AdminProfessionals";
+import ProfessionalOnlyGuard from "./components/auth/ProfessionalOnlyGuard";
 
 const queryClient = new QueryClient();
 
@@ -69,16 +71,26 @@ const App = () => (
                 <Route path="activities" element={<EducareActivitiesPage />} />
                 <Route path="settings" element={<EducareSettingsPage />} />
                 
-                {/* Professional Routes */}
-                <Route path="professional/dashboard" element={<ProfessionalDashboard />} />
-                <Route path="professional/analysis/:childId" element={<ChildAnalysis />} />
+                {/* Professional Routes - Protected */}
+                <Route path="professional/dashboard" element={
+                  <ProfessionalOnlyGuard>
+                    <ProfessionalDashboard />
+                  </ProfessionalOnlyGuard>
+                } />
+                <Route path="professional/analysis/:childId" element={
+                  <ProfessionalOnlyGuard>
+                    <ChildAnalysis />
+                  </ProfessionalOnlyGuard>
+                } />
                 
                 {/* Admin Routes */}
                 <Route path="admin/dashboard" element={<AdminDashboard />} />
                 <Route path="admin/users" element={<UserManagement />} />
+                <Route path="admin/professionals" element={<AdminProfessionals />} />
                 <Route path="admin/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="owner/dashboard" element={<OwnerDashboard />} />
                 <Route path="owner/users" element={<UserManagement />} />
+                <Route path="owner/professionals" element={<AdminProfessionals />} />
                 <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="super-admin/dashboard" element={<SuperAdminDashboard />} />
               </Route>

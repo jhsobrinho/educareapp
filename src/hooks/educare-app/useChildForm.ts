@@ -3,12 +3,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { differenceInYears } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { childFormSchema, ChildFormValues } from '@/schema/educare-app/childFormSchema';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isValidBirthdate } from '@/utils/educare-app/calculateAge';
+import { createChild, getChild, updateChild, deleteChild } from '@/services/api/childService';
 
 export const useChildForm = (id?: string) => {
   const { toast } = useToast();
@@ -54,44 +54,43 @@ export const useChildForm = (id?: string) => {
     try {
       console.log('Loading child data for ID:', id);
       
-      const { data, error } = await supabase
-        .from('educare_children')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single();
+      const response = await getChild(id);
 
-      if (error) {
-        console.error('Error loading child data:', error);
-        throw error;
+      if (!response.success) {
+        console.error('Error loading child data:', response.error);
+        throw new Error(response.error || 'Erro ao carregar dados da criança');
       }
 
-      if (data) {
-        console.log('Child data loaded:', data);
+      if (response.data) {
+        console.log('Child data loaded:', response.data);
         
-        const birthDate = new Date(data.birthdate);
+        const data = response.data;
+        const birthDate = new Date(data.birthDate);
         const formattedDate = birthDate.toISOString().split('T')[0];
-        const gender = data.gender || 'male';
-        const bloodtypeValue = data.bloodtype as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | undefined;
+        
+        // Extrair firstName e lastName do name
+        const nameParts = data.name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
 
         // Set the form values
         form.reset({
-          first_name: data.first_name || '',
-          last_name: data.last_name || '',
+          first_name: firstName,
+          last_name: lastName,
           birthDate: formattedDate,
-          gender: gender as 'male' | 'female' | 'other',
-          cpf: data.cpf || '',
-          nationality: data.nationality || '',
-          city: data.city || '',
-          bloodtype: bloodtypeValue,
-          observations: data.observations || '',
+          gender: data.gender as 'male' | 'female' | 'other',
+          cpf: '',
+          nationality: '',
+          city: '',
+          bloodtype: undefined,
+          observations: '',
         });
         
         setIsDirty(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading child data:', error);
-      const errorMessage = 'Não foi possível carregar os dados da criança';
+      const errorMessage = (error instanceof Error ? error.message : 'Erro desconhecido') || 'Não foi possível carregar os dados da criança';
       setError(errorMessage);
       toast({
         title: 'Erro',
@@ -108,7 +107,7 @@ export const useChildForm = (id?: string) => {
     if (isEditMode) {
       loadChildData();
     }
-  }, [id, user]);
+  }, [id, user, isEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to save child data
   const saveChildData = async (data: ChildFormValues) => {
@@ -137,77 +136,41 @@ export const useChildForm = (id?: string) => {
     try {
       console.log('Saving child data:', data);
       
-      // Calculate age based on birthdate
-      const birthDate = new Date(data.birthDate);
-      const age = differenceInYears(new Date(), birthDate);
-      
-      // Prepare the data object for both insert and update operations
+      // Prepare the data object for backend API
       const childData = {
-        first_name: data.first_name,
-        last_name: data.last_name,
-        birthdate: data.birthDate,
-        age,
+        name: `${data.first_name} ${data.last_name}`.trim(),
+        birthDate: data.birthDate,
         gender: data.gender,
-        cpf: data.cpf || null,
-        nationality: data.nationality || null,
-        city: data.city || null,
-        bloodtype: data.bloodtype || null,
-        observations: data.observations || null,
-        user_id: user.id,
-        name: `${data.first_name} ${data.last_name}`.trim()
       };
 
+      let response;
+      
       if (id) {
-        // Update existing child - preserve journey_progress
-        const { data: existingData } = await supabase
-          .from('educare_children')
-          .select('journey_progress')
-          .eq('id', id)
-          .single();
-          
-        const { error } = await supabase
-          .from('educare_children')
-          .update({
-            ...childData,
-            journey_progress: existingData?.journey_progress ?? 0,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-
-        if (error) throw error;
-        
-        toast({
-          title: 'Sucesso',
-          description: 'Dados atualizados com sucesso',
-        });
+        // Update existing child
+        response = await updateChild(id, childData);
       } else {
         // Create new child
-        const { error, data: newChild } = await supabase
-          .from('educare_children')
-          .insert({
-            ...childData,
-            journey_progress: 0,
-          })
-          .select('id')
-          .single();
+        response = await createChild(childData);
+      }
 
-        if (error) throw error;
-        
-        toast({
-          title: 'Sucesso',
-          description: 'Criança cadastrada com sucesso',
-        });
-        
-        if (newChild?.id) {
-          localStorage.setItem('educare_last_selected_child', newChild.id);
-        }
+      if (!response.success) {
+        throw new Error(response.error || 'Erro ao salvar dados da criança');
+      }
+      
+      toast({
+        title: 'Sucesso',
+        description: id ? 'Dados atualizados com sucesso' : 'Criança cadastrada com sucesso',
+      });
+      
+      if (!id && response.data?.id) {
+        localStorage.setItem('educare_last_selected_child', response.data.id);
       }
       
       setIsDirty(false);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving child data:', error);
-      const errorMessage = error.message || 'Não foi possível salvar os dados';
+      const errorMessage = (error instanceof Error ? error.message : 'Erro desconhecido') || 'Não foi possível salvar os dados';
       setError(errorMessage);
       toast({
         title: 'Erro',
@@ -241,13 +204,11 @@ export const useChildForm = (id?: string) => {
     setError(null);
     
     try {
-      const { error } = await supabase
-        .from('educare_children')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+      const response = await deleteChild(id);
 
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Erro ao remover criança');
+      }
 
       toast({
         title: 'Sucesso',
@@ -255,9 +216,9 @@ export const useChildForm = (id?: string) => {
       });
       
       navigate('/educare-app/children');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting child:', error);
-      const errorMessage = error.message || 'Não foi possível remover a criança';
+      const errorMessage = (error instanceof Error ? error.message : 'Erro desconhecido') || 'Não foi possível remover a criança';
       setError(errorMessage);
       toast({
         title: 'Erro',
