@@ -1,140 +1,374 @@
-
-import { useState, useEffect } from 'react';
-import { LicenseTeam, LicenseAllocationParams } from '@/types/license';
-import { uuid } from '@/utils/uuid';
+import { useState, useCallback, useEffect } from 'react';
+import { teamService, Team, TeamMember, CreateTeamData, UpdateTeamData, InviteMemberData, UpdateMemberData, UserForInvite, SearchUsersParams } from '@/services/teamService';
 import { toast } from '@/hooks/use-toast';
 
-export function useTeamManagement() {
-  const [teams, setTeams] = useState<LicenseTeam[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export interface UseTeamManagementReturn {
+  teams: Team[];
+  loading: boolean;
+  error: string | null;
+  total: number;
   
-  useEffect(() => {
-    // Load teams on mount
-    loadTeams();
-  }, []);
+  // Ações de equipes
+  fetchTeams: () => Promise<void>;
+  createTeam: (data: CreateTeamData) => Promise<boolean>;
+  updateTeam: (id: string, data: UpdateTeamData) => Promise<boolean>;
+  deleteTeam: (id: string) => Promise<boolean>;
+  getTeam: (id: string) => Promise<Team | null>;
   
-  const loadTeams = async () => {
-    setIsLoading(true);
+  // Ações de membros
+  fetchMembers: (teamId: string) => Promise<TeamMember[]>;
+  inviteMember: (teamId: string, data: InviteMemberData) => Promise<boolean>;
+  updateMember: (teamId: string, memberId: string, data: UpdateMemberData) => Promise<boolean>;
+  removeMember: (teamId: string, memberId: string) => Promise<boolean>;
+  
+  // Busca de usuários
+  searchUsers: (teamId: string, params?: SearchUsersParams) => Promise<UserForInvite[]>;
+  
+  // Utilitários
+  refreshData: () => Promise<void>;
+}
+
+export const useTeamManagement = (): UseTeamManagementReturn => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  // Função para buscar equipes
+  const fetchTeams = useCallback(async () => {
     try {
-      const storedTeams = localStorage.getItem('smartPeiTeams');
-      if (storedTeams) {
-        setTeams(JSON.parse(storedTeams));
+      setLoading(true);
+      setError(null);
+      
+      const response = await teamService.listTeams();
+      
+      if (response.success && response.data) {
+        setTeams(response.data.teams || []);
+        setTotal(response.data.total || 0);
       } else {
-        // Initialize with empty array if no teams found
+        setError(response.error || 'Erro ao buscar equipes');
         setTeams([]);
-        localStorage.setItem('smartPeiTeams', JSON.stringify([]));
+        setTotal(0);
       }
-    } catch (error) {
-      console.error('Error loading teams:', error);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      setError(errorMsg);
+      setTeams([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Função para criar equipe
+  const createTeam = useCallback(async (data: CreateTeamData): Promise<boolean> => {
+    try {
+      const response = await teamService.createTeam(data);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Equipe criada com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista após criação
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao criar equipe",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
       toast({
-        title: "Erro ao carregar equipes",
-        description: "Não foi possível carregar as equipes. Tente novamente.",
+        title: "Erro",
+        description: errorMsg,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
+      return false;
     }
-  };
-  
-  const saveTeams = async (updatedTeams: LicenseTeam[]) => {
+  }, [fetchTeams]);
+
+  // Função para atualizar equipe
+  const updateTeam = useCallback(async (id: string, data: UpdateTeamData): Promise<boolean> => {
     try {
-      localStorage.setItem('smartPeiTeams', JSON.stringify(updatedTeams));
-      setTeams(updatedTeams);
-    } catch (error) {
-      console.error('Error saving teams:', error);
-      throw error;
+      const response = await teamService.updateTeam(id, data);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Equipe atualizada com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista após edição
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao atualizar equipe",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
     }
-  };
-  
-  const getAllTeams = () => {
-    return teams;
-  };
-  
-  const getTeamById = (teamId: string) => {
-    return teams.find(team => team.id === teamId);
-  };
-  
-  const getTeamsByLicense = (licenseId: string) => {
-    return teams.filter(team => team.licenseId === licenseId || (team.licenses && team.licenses.includes(licenseId)));
-  };
-  
-  const getTeamsByStudentId = (studentId: string) => {
-    return teams.filter(team => team.studentId === studentId);
-  };
-  
-  const getTeamsByUserId = (userId: string) => {
-    return teams.filter(team => 
-      team.members.some(member => member.id === userId)
-    );
-  };
-  
-  const createTeam = (params: LicenseAllocationParams) => {
-    const now = new Date().toISOString();
-    const teamId = uuid();
-    
-    const newTeam: LicenseTeam = {
-      id: teamId,
-      name: params.teamName || `Team ${teams.length + 1}`,
-      description: `Team for ${params.studentName || 'student'}`,
-      members: params.professionals || [],
-      licenses: [params.licenseId],
-      licenseId: params.licenseId,
-      studentId: params.studentId,
-      studentName: params.studentName,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    const updatedTeams = [...teams, newTeam];
-    saveTeams(updatedTeams);
-    
-    toast({
-      title: "Equipe criada",
-      description: `Equipe ${newTeam.name} foi criada com sucesso.`,
-    });
-    
-    return teamId;
-  };
-  
-  const updateTeam = (team: LicenseTeam) => {
-    const updatedTeams = teams.map(t => 
-      t.id === team.id ? { ...team, updatedAt: new Date().toISOString() } : t
-    );
-    
-    saveTeams(updatedTeams);
-    
-    toast({
-      title: "Equipe atualizada",
-      description: `Equipe ${team.name} foi atualizada com sucesso.`,
-    });
-  };
-  
-  const deleteTeam = (teamId: string) => {
-    const teamToDelete = teams.find(team => team.id === teamId);
-    const updatedTeams = teams.filter(team => team.id !== teamId);
-    
-    saveTeams(updatedTeams);
-    
-    toast({
-      title: "Equipe excluída",
-      description: teamToDelete 
-        ? `Equipe ${teamToDelete.name} foi excluída com sucesso.` 
-        : "Equipe excluída com sucesso.",
-    });
-  };
-  
+  }, [fetchTeams]);
+
+  // Função para deletar equipe
+  const deleteTeam = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await teamService.deleteTeam(id);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Equipe removida com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista após exclusão
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao remover equipe",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [fetchTeams]);
+
+  // Função para obter detalhes de uma equipe
+  const getTeam = useCallback(async (id: string): Promise<Team | null> => {
+    try {
+      const response = await teamService.getTeam(id);
+      
+      if (response.success && response.data) {
+        return response.data;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao buscar equipe",
+          variant: "destructive",
+        });
+        return null;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, []);
+
+  // Função para buscar membros de uma equipe
+  const fetchMembers = useCallback(async (teamId: string): Promise<TeamMember[]> => {
+    try {
+      const response = await teamService.listMembers(teamId);
+      
+      if (response.success && response.data) {
+        return response.data.members || [];
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao buscar membros",
+          variant: "destructive",
+        });
+        return [];
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return [];
+    }
+  }, []);
+
+  // Função para convidar membro
+  const inviteMember = useCallback(async (teamId: string, data: InviteMemberData): Promise<boolean> => {
+    try {
+      const response = await teamService.inviteMember(teamId, data);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Convite enviado com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista de equipes para refletir novos membros
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao enviar convite",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [fetchTeams]);
+
+  // Função para atualizar membro
+  const updateMember = useCallback(async (teamId: string, memberId: string, data: UpdateMemberData): Promise<boolean> => {
+    try {
+      const response = await teamService.updateMember(teamId, memberId, data);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Membro atualizado com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista de equipes
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao atualizar membro",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [fetchTeams]);
+
+  // Função para remover membro
+  const removeMember = useCallback(async (teamId: string, memberId: string): Promise<boolean> => {
+    try {
+      const response = await teamService.removeMember(teamId, memberId);
+      
+      if (response.success) {
+        toast({
+          title: "Sucesso",
+          description: "Membro removido com sucesso",
+          variant: "default",
+        });
+        
+        // Atualizar lista de equipes
+        await fetchTeams();
+        return true;
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao remover membro",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [fetchTeams]);
+
+  // Função para buscar usuários para convite
+  const searchUsers = useCallback(async (teamId: string, params: SearchUsersParams = {}): Promise<UserForInvite[]> => {
+    try {
+      const response = await teamService.searchUsersForInvite(teamId, params);
+      
+      if (response.success && response.data) {
+        return response.data.users || [];
+      } else {
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao buscar usuários",
+          variant: "destructive",
+        });
+        return [];
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return [];
+    }
+  }, []);
+
+  // Função para atualizar dados
+  const refreshData = useCallback(async () => {
+    await fetchTeams();
+  }, [fetchTeams]);
+
+  // Carregar equipes na inicialização
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
   return {
     teams,
-    isLoading,
-    getAllTeams,
-    getTeamsByStudentId,
-    getTeamsByUserId,
-    getTeamsByLicense,
+    loading,
+    error,
+    total,
+    fetchTeams,
     createTeam,
     updateTeam,
     deleteTeam,
-    refreshTeams: loadTeams
+    getTeam,
+    fetchMembers,
+    inviteMember,
+    updateMember,
+    removeMember,
+    searchUsers,
+    refreshData,
   };
-}
+};
 
 export default useTeamManagement;

@@ -61,4 +61,25 @@ const TeamMember = sequelize.define('TeamMember', {
   timestamps: true
 });
 
+// Definir associações
+TeamMember.associate = function(models) {
+  // TeamMember pertence a um Team
+  TeamMember.belongsTo(models.Team, {
+    foreignKey: 'teamId',
+    as: 'team'
+  });
+  
+  // TeamMember pertence a um User
+  TeamMember.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+  
+  // TeamMember foi convidado por um User
+  TeamMember.belongsTo(models.User, {
+    foreignKey: 'invitedBy',
+    as: 'inviter'
+  });
+};
+
 module.exports = TeamMember;

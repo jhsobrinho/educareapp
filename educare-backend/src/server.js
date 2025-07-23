@@ -19,6 +19,7 @@ const achievementRoutes = require('./routes/achievementRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const teamRoutes = require('./routes/teamRoutes');
 
 // Inicialização do app Express
 const app = express();
@@ -48,7 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/children', childRoutes);
-// app.use('/api/teams', teamRoutes); // TODO: Implementar rotas de equipes
+app.use('/api/teams', teamRoutes);
 // app.use('/api/licenses', licenseRoutes); // TODO: Implementar rotas de licenças
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/journeys', journeyRoutes);

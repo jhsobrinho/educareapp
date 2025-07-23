@@ -31,6 +31,7 @@ import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import SubscriptionPlansManagement from "./pages/admin/SubscriptionPlansManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import AdminProfessionals from "./pages/admin/AdminProfessionals";
+import TeamsManagement from "./pages/admin/TeamsManagement";
 import ProfessionalOnlyGuard from "./components/auth/ProfessionalOnlyGuard";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
                 <Route path="owner/dashboard" element={<OwnerDashboard />} />
                 <Route path="owner/users" element={<UserManagement />} />
                 <Route path="owner/professionals" element={<AdminProfessionals />} />
+                <Route path="owner/teams" element={<TeamsManagement />} />
                 <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="super-admin/dashboard" element={<SuperAdminDashboard />} />
               </Route>

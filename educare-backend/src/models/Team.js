@@ -54,4 +54,19 @@ const Team = sequelize.define('Team', {
   timestamps: true
 });
 
+// Definir associações
+Team.associate = function(models) {
+  // Team pertence a um User (owner)
+  Team.belongsTo(models.User, {
+    foreignKey: 'ownerId',
+    as: 'owner'
+  });
+  
+  // Team tem muitos TeamMembers
+  Team.hasMany(models.TeamMember, {
+    foreignKey: 'teamId',
+    as: 'members'
+  });
+};
+
 module.exports = Team;
