@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useSupabaseChildren } from '@/hooks/useSupabaseChildren';
+import { useCustomChildren } from '@/hooks/educare-app/useCustomChildren';
 import { calculateAge } from '@/utils/dateUtils';
 import JourneyBotChildSelector from '@/components/educare-app/journey-bot/JourneyBotChildSelector';
 import JourneyBotSessionManager from '@/components/educare-app/journey-bot/JourneyBotSessionManager';
@@ -14,7 +14,7 @@ const JourneyBotPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const selectedChildId = searchParams.get('child');
-  const { children, isLoading } = useSupabaseChildren();
+  const { children, isLoading } = useCustomChildren();
   const [currentChild, setCurrentChild] = useState<any>(null);
 
   useEffect(() => {
@@ -67,12 +67,12 @@ const JourneyBotPage: React.FC = () => {
           {children.length > 0 ? (
             <JourneyBotChildSelector 
               children={children.map(child => {
-                const ageData = calculateAge(child.birthdate);
+                const ageData = calculateAge(child.birthDate || child.birthdate);
                 return {
                   id: child.id,
                   name: `${child.first_name} ${child.last_name}`,
                   age: ageData.years || 0,
-                  birthdate: child.birthdate,
+                  birthdate: child.birthDate || child.birthdate,
                   gender: child.gender
                 };
               })}

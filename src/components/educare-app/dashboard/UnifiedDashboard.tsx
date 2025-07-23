@@ -21,7 +21,8 @@ import ChildSelector from './ChildSelector';
 const UnifiedDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isParent = user?.role === 'parent';
+  // Tratar 'user' como 'parent' para compatibilidade
+  const isParent = user?.role === 'parent' || (user?.role as string) === 'user';
   const isProfessional = user?.role === 'professional';
 
   // Use the new dashboard metrics hook
@@ -53,13 +54,13 @@ const UnifiedDashboard: React.FC = () => {
 
           {/* Child Selector - Always visible for parents with children */}
           {isParent && totalChildren > 0 && (
-            <ChildSelector children={children} />
+            <ChildSelector children={children as any} />
           )}
 
           {/* Enhanced Key Metrics - Always individual for parents */}
           <EnhancedMetricsCards 
             metrics={metrics}
-            userRole={user?.role || 'parent'}
+            userRole={isParent ? 'parent' : (user?.role || 'parent')}
             individualMode={isParent}
           />
 
@@ -92,9 +93,9 @@ const UnifiedDashboard: React.FC = () => {
                   return (
                     <div key={child.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
-                        <h4 className="font-medium">{child.first_name} {child.last_name}</h4>
+                        <h4 className="font-medium">{child.firstName || child.first_name} {child.lastName || child.last_name}</h4>
                         <p className="text-sm text-gray-600">
-                          {child.birthdate ? getDetailedAgeDisplay(child.birthdate) : 'Idade não informada'}
+                          {child.birthDate || child.birthdate ? getDetailedAgeDisplay(child.birthDate || child.birthdate) : 'Idade não informada'}
                         </p>
                         {isParent && childWithProgress.sessionCount > 0 && (
                           <div className="text-xs text-blue-600 mt-1">

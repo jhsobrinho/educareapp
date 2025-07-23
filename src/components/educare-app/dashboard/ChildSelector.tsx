@@ -7,8 +7,8 @@ import { useSelectedChild } from '@/contexts/SelectedChildContext';
 
 interface Child {
   id: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   birthdate: string;
   age: number;
 }
@@ -57,7 +57,7 @@ const ChildSelector: React.FC<ChildSelectorProps> = ({ children }) => {
                     <SelectItem key={child.id} value={child.id}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">
-                          {child.first_name} {child.last_name}
+                          {child.firstName} {child.lastName}
                         </span>
                         <span className="text-sm text-gray-500">
                           • {getDetailedAgeDisplay(child.birthdate)}
