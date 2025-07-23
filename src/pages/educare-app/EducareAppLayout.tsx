@@ -14,8 +14,17 @@ const EducareAppLayout: React.FC = () => {
   const breadcrumbs = useBreadcrumbs();
   const location = useLocation();
   
+  // 🚀 DEBUG: Log de entrada no layout
+  console.log('🚀 EDUCAREAPPLAYOUT RENDERIZADO!', {
+    pathname: location.pathname,
+    userRole: user?.role,
+    isLoading,
+    hasUser: !!user
+  });
+  
   // Show loading while auth is loading
   if (isLoading) {
+    console.log('🔄 EDUCAREAPPLAYOUT: Mostrando loading...');
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -28,11 +37,13 @@ const EducareAppLayout: React.FC = () => {
 
   // Redirect to auth if not authenticated
   if (!user) {
+    console.log('❌ EDUCAREAPPLAYOUT: Usuário não autenticado, redirecionando...');
     return <Navigate to="/educare-app/auth" replace />;
   }
 
   // Redirect professionals to their dashboard if they try to access other areas
   if (user.role === 'professional') {
+    console.log('👨‍⚕️ EDUCAREAPPLAYOUT: Usuário é professional');
     const allowedPaths = [
       '/educare-app/professional/dashboard',
       '/educare-app/settings'
@@ -41,10 +52,45 @@ const EducareAppLayout: React.FC = () => {
     const isAllowedPath = allowedPaths.some(path => location.pathname.startsWith(path));
     
     if (!isAllowedPath) {
+      console.log('❌ EDUCAREAPPLAYOUT: Professional tentando acessar área não permitida, redirecionando...');
       return <Navigate to="/educare-app/professional/dashboard" replace />;
     }
   }
+  
+  // Allow owners and admins to access their respective areas
+  if (user.role === 'owner' || user.role === 'admin') {
+    console.log('👑 EDUCAREAPPLAYOUT: Usuário é owner/admin', {
+      role: user.role,
+      pathname: location.pathname
+    });
+    const allowedPaths = [
+      '/educare-app/owner/',
+      '/educare-app/admin/',
+      '/educare-app/dashboard',
+      '/educare-app/children',
+      '/educare-app/child/',
+      '/educare-app/journey-bot',
+      '/educare-app/activities',
+      '/educare-app/settings'
+    ];
+    
+    const isAllowedPath = allowedPaths.some(path => location.pathname.startsWith(path));
+    console.log('🔍 EDUCAREAPPLAYOUT: Verificando paths permitidos', {
+      allowedPaths,
+      currentPath: location.pathname,
+      isAllowedPath
+    });
+    
+    // Se não for um path permitido, redirecionar para o dashboard apropriado
+    if (!isAllowedPath) {
+      const dashboardPath = user.role === 'owner' ? '/educare-app/owner/dashboard' : '/educare-app/admin/dashboard';
+      console.log('❌ EDUCAREAPPLAYOUT: Path não permitido, redirecionando para:', dashboardPath);
+      return <Navigate to={dashboardPath} replace />;
+    }
+  }
 
+  console.log('✅ EDUCAREAPPLAYOUT: Renderizando layout principal!');
+  
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">

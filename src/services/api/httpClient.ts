@@ -50,6 +50,10 @@ class HttpClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      // Headers para evitar cache e forçar requisições frescas
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     };
 
     if (requiresAuth) {
@@ -67,7 +71,30 @@ class HttpClient {
    */
   private async processResponse<T>(response: Response): Promise<ApiResponse<T>> {
     try {
-      const data = await response.json();
+      // Trata especificamente status 304 (Not Modified)
+      if (response.status === 304) {
+        console.warn('🔄 HTTP 304 - Usando cache, mas forçando nova requisição...');
+        // Para 304, consideramos como sucesso mas sem dados novos
+        return {
+          success: true,
+          data: undefined as T,
+          message: 'Dados em cache (304 Not Modified)',
+        };
+      }
+
+      // Tenta processar JSON da resposta
+      let data: any;
+      try {
+        const responseText = await response.text();
+        if (responseText) {
+          data = JSON.parse(responseText);
+        } else {
+          data = {};
+        }
+      } catch (jsonError) {
+        console.warn('⚠️ Erro ao processar JSON da resposta:', jsonError);
+        data = {};
+      }
 
       // Se o status não for de sucesso, trata como erro
       if (!response.ok) {
@@ -78,19 +105,23 @@ class HttpClient {
 
         return {
           success: false,
-          error: data.error || data.message || 'Erro desconhecido',
+          error: data.error || data.message || `Erro HTTP ${response.status}: ${response.statusText}`,
         };
       }
 
+      // Processa resposta de sucesso
+      const processedData = data.data !== undefined ? data.data : data;
+      
       return {
         success: true,
-        data: data.data || data,
+        data: processedData,
         message: data.message,
       };
     } catch (error) {
+      console.error('❌ Erro ao processar resposta da API:', error);
       return {
         success: false,
-        error: 'Erro ao processar resposta da API',
+        error: error instanceof Error ? error.message : 'Erro ao processar resposta da API',
       };
     }
   }

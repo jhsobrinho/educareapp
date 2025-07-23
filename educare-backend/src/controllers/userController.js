@@ -346,13 +346,45 @@ exports.listProfessionals = async (req, res) => {
       };
     });
     
-    return res.status(200).json({
+    console.log('\n📋 === DADOS COMPLETOS DOS PROFISSIONAIS ===');
+    mappedProfessionals.forEach((prof, index) => {
+      console.log(`\n👤 PROFISSIONAL ${index + 1}:`);
+      console.log('  - ID:', prof.id);
+      console.log('  - Nome:', prof.name);
+      console.log('  - Email:', prof.email);
+      console.log('  - Role:', prof.role);
+      console.log('  - Status:', prof.status);
+      console.log('  - Phone:', prof.phone);
+      console.log('  - Criado em:', prof.created_at);
+      
+      if (prof.profile) {
+        console.log('  📄 PERFIL:');
+        console.log('    - ID do perfil:', prof.profile.id);
+        console.log('    - Nome do perfil:', prof.profile.name);
+        console.log('    - Profissão:', prof.profile.profession);
+        console.log('    - Especialização:', prof.profile.specialization);
+        console.log('    - Telefone do perfil:', prof.profile.phone);
+        console.log('    - Bio:', prof.profile.bio);
+        console.log('    - Endereço:', prof.profile.address);
+        console.log('    - Cidade:', prof.profile.city);
+        console.log('    - Estado:', prof.profile.state);
+      } else {
+        console.log('  📄 PERFIL: null (sem perfil cadastrado)');
+      }
+    });
+    
+    console.log('\n📦 === ESTRUTURA FINAL ENVIADA AO FRONTEND ===');
+    const responseData = {
       success: true,
       data: {
         professionals: mappedProfessionals,
         total: mappedProfessionals.length
       }
-    });
+    };
+    console.log('Response completa:', JSON.stringify(responseData, null, 2));
+    console.log('\n=== FIM DOS LOGS DETALHADOS ===\n');
+    
+    return res.status(200).json(responseData);
   } catch (error) {
     console.error('Erro ao listar profissionais:', error);
     return res.status(500).json({ 

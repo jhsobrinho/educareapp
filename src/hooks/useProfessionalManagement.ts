@@ -43,12 +43,11 @@ export const useProfessionalManagement = (): UseProfessionalManagementReturn => 
       setIsLoading(true);
       setError(null);
 
-      console.log('Buscando profissionais...');
       const response = await listProfessionals();
 
       if (response.success && response.data) {
-        console.log('Profissionais carregados:', response.data.professionals.length);
-        setProfessionals(response.data.professionals);
+        const professionalsArray = response.data.professionals || [];
+        setProfessionals(professionalsArray);
       } else {
         const errorMessage = response.error || 'Erro ao carregar profissionais';
         setError(errorMessage);
@@ -59,7 +58,7 @@ export const useProfessionalManagement = (): UseProfessionalManagementReturn => 
         });
       }
     } catch (error: unknown) {
-      console.error('Error in fetchProfessionals:', error);
+      
       const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao carregar profissionais";
       setError(errorMessage);
       toast({
@@ -69,6 +68,9 @@ export const useProfessionalManagement = (): UseProfessionalManagementReturn => 
       });
     } finally {
       setIsLoading(false);
+      console.log('\n=== ESTADO FINAL DO HOOK ===');
+      console.log('⏳ isLoading definido como false');
+      console.log('=== FIM REQUISIÇÃO FRONTEND ===\n');
     }
   }, [toast]);
 
