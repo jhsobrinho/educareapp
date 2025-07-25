@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useCustomAuth } from '@/hooks/useCustomAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { dashboardService, type DashboardMetrics, type SubscriptionPlanMetrics } from '@/services/dashboardService';
 import { subscriptionPlansService, type SubscriptionPlan } from '@/services/subscriptionPlansService';
 import { subscriptionStatsService, type SubscriptionStats, type DashboardStats } from '@/services/subscriptionStatsService';
@@ -130,6 +130,21 @@ const OwnerDashboard: React.FC = () => {
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm font-medium">Sistema Saudável</span>
             </div>
+            <Link
+              to="/educare-app/owner/plans"
+              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <CreditCard className="h-5 w-5 text-blue-600" />
+              <span className="font-medium">Planos de Assinatura</span>
+            </Link>
+            
+            <Link
+              to="/educare-app/owner/subscriptions"
+              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Users className="h-5 w-5 text-green-600" />
+              <span className="font-medium">Gestão de Assinaturas</span>
+            </Link>
           </div>
         </div>
 

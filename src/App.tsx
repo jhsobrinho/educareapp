@@ -27,6 +27,7 @@ import WhatsAppJourneyBotPage from "./pages/WhatsAppJourneyBotPage";
 // Admin Pages
 import OwnerDashboard from "./pages/admin/OwnerDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import SubscriptionPlansManagement from "./pages/admin/SubscriptionPlansManagement";
 import UserManagement from "./pages/admin/UserManagement";
@@ -100,6 +101,7 @@ const App = () => (
                 <Route path="owner/children" element={<GlobalChildrenManagementPage />} />
                 <Route path="owner/chats" element={<AllChatsView />} />
                 <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
+                <Route path="owner/subscriptions" element={<AdminSubscriptions />} />
                 
                 {/* Professional Routes - Gestão de Crianças */}
                 <Route path="professional/children" element={

@@ -196,6 +196,212 @@ router.post(
   subscriptionController.renewSubscription
 );
 
+// ========== ROTAS ADMINISTRATIVAS ==========
+
+/**
+ * @swagger
+ * /api/subscriptions/admin/all:
+ *   get:
+ *     summary: Listar todas as assinaturas (Admin/Owner)
+ *     tags: [Admin - Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de todas as assinaturas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 subscriptions:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Subscription'
+ *                 total:
+ *                   type: integer
+ *       403:
+ *         description: Acesso negado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/admin/all', isAdminOrOwner, subscriptionController.getAllSubscriptions);
+
+/**
+ * @swagger
+ * /api/subscriptions/admin/stats:
+ *   get:
+ *     summary: Obter estatísticas de assinaturas (Admin/Owner)
+ *     tags: [Admin - Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estatísticas de assinaturas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalSubscriptions:
+ *                   type: integer
+ *                 activeSubscriptions:
+ *                   type: integer
+ *                 trialSubscriptions:
+ *                   type: integer
+ *                 expiredSubscriptions:
+ *                   type: integer
+ *                 cancelledSubscriptions:
+ *                   type: integer
+ *                 newThisMonth:
+ *                   type: integer
+ *                 monthlyRevenue:
+ *                   type: number
+ *                 revenueGrowth:
+ *                   type: number
+ *                 conversionRate:
+ *                   type: number
+ *                 churnRate:
+ *                   type: number
+ *       403:
+ *         description: Acesso negado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/admin/stats', isAdminOrOwner, subscriptionController.getSubscriptionStats);
+
+/**
+ * @swagger
+ * /api/subscriptions/{id}:
+ *   get:
+ *     summary: Obter detalhes de uma assinatura
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID da assinatura
+ *     responses:
+ *       200:
+ *         description: Detalhes da assinatura
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Subscription'
+ *       404:
+ *         description: Assinatura não encontrada
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/:id', isAuthenticated, subscriptionController.getSubscriptionDetails || subscriptionController.getMyActiveSubscription);
+
+/**
+ * @swagger
+ * /api/subscriptions/{id}:
+ *   put:
+ *     summary: Atualizar assinatura (Admin/Owner)
+ *     tags: [Admin - Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID da assinatura
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [active, trial, expired, cancelled, suspended]
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *               nextBillingDate:
+ *                 type: string
+ *                 format: date
+ *               autoRenew:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Assinatura atualizada com sucesso
+ *       403:
+ *         description: Acesso negado
+ *       404:
+ *         description: Assinatura não encontrada
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/:id', isAdminOrOwner, subscriptionController.updateSubscription);
+
+/**
+ * @swagger
+ * /api/subscriptions/{id}/suspend:
+ *   post:
+ *     summary: Suspender assinatura (Admin/Owner)
+ *     tags: [Admin - Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID da assinatura
+ *     responses:
+ *       200:
+ *         description: Assinatura suspensa com sucesso
+ *       400:
+ *         description: Assinatura já está suspensa
+ *       403:
+ *         description: Acesso negado
+ *       404:
+ *         description: Assinatura não encontrada
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/:id/suspend', isAdminOrOwner, subscriptionController.suspendSubscription);
+
+/**
+ * @swagger
+ * /api/subscriptions/{id}/reactivate:
+ *   post:
+ *     summary: Reativar assinatura (Admin/Owner)
+ *     tags: [Admin - Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID da assinatura
+ *     responses:
+ *       200:
+ *         description: Assinatura reativada com sucesso
+ *       400:
+ *         description: Assinatura já está ativa ou foi cancelada
+ *       403:
+ *         description: Acesso negado
+ *       404:
+ *         description: Assinatura não encontrada
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/:id/reactivate', isAdminOrOwner, subscriptionController.reactivateSubscription);
+
 // Rota para mudar o plano de uma assinatura do usuário logado
 router.post(
   '/:id/change-plan',
