@@ -10,6 +10,7 @@ import JourneySummary from './JourneySummary';
 import JourneyBotCard from './JourneyBotCard';
 import DashboardErrorBoundary from './DashboardErrorBoundary';
 import DashboardLoadingState from './DashboardLoadingState';
+import ProfessionalsList from './ProfessionalsList';
 
 const ParentDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -123,6 +124,11 @@ const ParentDashboard: React.FC = () => {
             </DashboardErrorBoundary>
           </div>
         </div>
+
+        {/* Professionals List */}
+        <DashboardErrorBoundary>
+          <ProfessionalsList className="" />
+        </DashboardErrorBoundary>
 
         {/* Journey Summary */}
         {children.length > 0 && (

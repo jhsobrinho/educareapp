@@ -20,6 +20,8 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const teamRoutes = require('./routes/teamRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const adminChildrenRoutes = require('./routes/adminChildrenRoutes');
 
 // Inicialização do app Express
 const app = express();
@@ -57,6 +59,8 @@ app.use('/api/achievements', achievementRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/admin/children', adminChildrenRoutes);
 
 // Rota padrão
 app.get('/', (req, res) => {

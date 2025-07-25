@@ -3,6 +3,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { 
   Users, 
   UserCheck, 
@@ -10,13 +11,21 @@ import {
   Calendar,
   Activity,
   CheckSquare,
+  MessageCircle,
+  Baby,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { useUserManagement } from '@/hooks/useUserManagement';
+import { useActivityFeed } from '@/hooks/useActivityFeed';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const { users } = useUserManagement();
+  const { activities, stats, isLoading: activitiesLoading, error: activitiesError, refreshActivities } = useActivityFeed();
   
   // Count users by role
   const userCounts = {
@@ -24,6 +33,36 @@ const AdminDashboard: React.FC = () => {
     parents: users.filter(u => u.role === 'parent').length,
     professionals: users.filter(u => ['teacher', 'therapist', 'specialist', 'psychologist'].includes(u.role)).length,
     admins: users.filter(u => u.role === 'admin').length,
+  };
+
+  // Função para obter ícone baseado no tipo de atividade
+  const getActivityIcon = (iconType: string) => {
+    switch (iconType) {
+      case 'user':
+        return <CheckSquare className="h-5 w-5 text-green-500 mt-0.5" />;
+      case 'quiz':
+        return <Calendar className="h-5 w-5 text-blue-500 mt-0.5" />;
+      case 'team':
+        return <Users className="h-5 w-5 text-purple-500 mt-0.5" />;
+      case 'chat':
+        return <MessageCircle className="h-5 w-5 text-indigo-500 mt-0.5" />;
+      case 'child':
+        return <Baby className="h-5 w-5 text-pink-500 mt-0.5" />;
+      default:
+        return <Activity className="h-5 w-5 text-gray-500 mt-0.5" />;
+    }
+  };
+
+  // Função para formatar tempo relativo
+  const formatTimeAgo = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { 
+        addSuffix: true, 
+        locale: ptBR 
+      });
+    } catch {
+      return 'Data inválida';
+    }
   };
   
   return (
@@ -99,39 +138,58 @@ const AdminDashboard: React.FC = () => {
           
           <TabsContent value="overview" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Atividade Recente</CardTitle>
-                <CardDescription>Últimas ações no sistema</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle>Atividade Recente</CardTitle>
+                  <CardDescription>Últimas ações no sistema</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshActivities}
+                  disabled={activitiesLoading}
+                >
+                  {activitiesLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 bg-slate-50 p-3 rounded-md">
-                    <CheckSquare className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium">Novo usuário cadastrado</p>
-                      <p className="text-sm text-gray-500">Maria Silva registrou-se como profissional</p>
-                      <p className="text-xs text-gray-400 mt-1">Hoje, 10:45</p>
-                    </div>
+                {activitiesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                    <span className="ml-2 text-gray-500">Carregando atividades...</span>
                   </div>
-                  
-                  <div className="flex items-start gap-4 bg-slate-50 p-3 rounded-md">
-                    <Calendar className="h-5 w-5 text-blue-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium">Atualização de quiz</p>
-                      <p className="text-sm text-gray-500">Novas questões adicionadas ao quiz de 2-3 anos</p>
-                      <p className="text-xs text-gray-400 mt-1">Ontem, 15:30</p>
-                    </div>
+                ) : activitiesError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-500 mb-2">{activitiesError}</p>
+                    <Button variant="outline" size="sm" onClick={refreshActivities}>
+                      Tentar novamente
+                    </Button>
                   </div>
-                  
-                  <div className="flex items-start gap-4 bg-slate-50 p-3 rounded-md">
-                    <Users className="h-5 w-5 text-purple-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium">Conexão de profissionais</p>
-                      <p className="text-sm text-gray-500">Psicólogo João conectou-se a 3 crianças</p>
-                      <p className="text-xs text-gray-400 mt-1">03/04/2025, 09:15</p>
-                    </div>
+                ) : activities.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>Nenhuma atividade recente encontrada</p>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activities.map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-4 bg-slate-50 p-3 rounded-md">
+                        {getActivityIcon(activity.icon_type)}
+                        <div className="flex-1">
+                          <p className="font-medium">{activity.title}</p>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatTimeAgo(activity.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
             

@@ -18,6 +18,8 @@ const Achievement = require('./Achievement');
 const UserAchievement = require('./UserAchievement');
 const Journey = require('./Journey');
 const UserJourney = require('./UserJourney');
+const ChatGroup = require('./ChatGroup');
+const ChatMessage = require('./ChatMessage');
 
 // Definição das associações
 
@@ -105,6 +107,28 @@ Journey.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 User.hasMany(Quiz, { foreignKey: 'createdBy', as: 'createdQuizzes' });
 Quiz.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
+// === ASSOCIAÇÕES DE CHAT ===
+
+// Team <-> ChatGroup (1:N)
+Team.hasMany(ChatGroup, { foreignKey: 'team_id', as: 'chatGroups' });
+ChatGroup.belongsTo(Team, { foreignKey: 'team_id', as: 'team' });
+
+// Child <-> ChatGroup (1:N)
+Child.hasMany(ChatGroup, { foreignKey: 'child_id', as: 'chatGroups' });
+ChatGroup.belongsTo(Child, { foreignKey: 'child_id', as: 'child' });
+
+// ChatGroup <-> ChatMessage (1:N)
+ChatGroup.hasMany(ChatMessage, { foreignKey: 'chat_group_id', as: 'messages' });
+ChatMessage.belongsTo(ChatGroup, { foreignKey: 'chat_group_id', as: 'chatGroup' });
+
+// User <-> ChatMessage (1:N) - Sender
+User.hasMany(ChatMessage, { foreignKey: 'sender_id', as: 'sentMessages' });
+ChatMessage.belongsTo(User, { foreignKey: 'sender_id', as: 'sender' });
+
+// ChatMessage <-> ChatMessage (Self-referencing for replies)
+ChatMessage.belongsTo(ChatMessage, { foreignKey: 'reply_to_id', as: 'replyTo' });
+ChatMessage.hasMany(ChatMessage, { foreignKey: 'reply_to_id', as: 'replies' });
+
 // Exportação dos modelos
 module.exports = {
   sequelize,
@@ -124,5 +148,7 @@ module.exports = {
   Achievement,
   UserAchievement,
   Journey,
-  UserJourney
+  UserJourney,
+  ChatGroup,
+  ChatMessage
 };

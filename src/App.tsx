@@ -32,6 +32,8 @@ import SubscriptionPlansManagement from "./pages/admin/SubscriptionPlansManageme
 import UserManagement from "./pages/admin/UserManagement";
 import AdminProfessionals from "./pages/admin/AdminProfessionals";
 import TeamsManagement from "./pages/admin/TeamsManagement";
+import GlobalChildrenManagementPage from "./pages/admin/GlobalChildrenManagement";
+import { AllChatsView } from "./components/educare-app/admin/AllChatsView";
 import ProfessionalOnlyGuard from "./components/auth/ProfessionalOnlyGuard";
 
 const queryClient = new QueryClient();
@@ -89,12 +91,22 @@ const App = () => (
                 <Route path="admin/users" element={<UserManagement />} />
                 <Route path="admin/professionals" element={<AdminProfessionals />} />
                 <Route path="admin/teams" element={<TeamsManagement />} />
+                <Route path="admin/children" element={<GlobalChildrenManagementPage />} />
                 <Route path="admin/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="owner/dashboard" element={<OwnerDashboard />} />
                 <Route path="owner/users" element={<UserManagement />} />
                 <Route path="owner/professionals" element={<AdminProfessionals />} />
                 <Route path="owner/teams" element={<TeamsManagement />} />
+                <Route path="owner/children" element={<GlobalChildrenManagementPage />} />
+                <Route path="owner/chats" element={<AllChatsView />} />
                 <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
+                
+                {/* Professional Routes - Gestão de Crianças */}
+                <Route path="professional/children" element={
+                  <ProfessionalOnlyGuard>
+                    <GlobalChildrenManagementPage />
+                  </ProfessionalOnlyGuard>
+                } />
                 <Route path="super-admin/dashboard" element={<SuperAdminDashboard />} />
               </Route>
               

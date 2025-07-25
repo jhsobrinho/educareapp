@@ -562,6 +562,8 @@ const SubscriptionPlansManagement: React.FC = () => {
                     </Select>
                   </div>
 
+
+
                   <div>
                     <Label htmlFor="trial_days">Dias de Teste Grátis</Label>
                     <Input

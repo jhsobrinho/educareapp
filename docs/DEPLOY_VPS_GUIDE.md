@@ -701,6 +701,280 @@ free -h
 
 ---
 
+## Processo de Atualização
+
+### Quando Atualizar
+- Novas funcionalidades desenvolvidas
+- Correções de bugs críticos
+- Atualizações de segurança
+- Melhorias de performance
+- Atualizações de dependências
+
+### 1. Pré-Atualização (OBRIGATÓRIO)
+
+#### Backup Completo
+```bash
+# 1. Backup do banco de dados
+/home/educare/scripts/backup-db.sh
+
+# 2. Backup dos arquivos da aplicação
+cd /home/educare
+tar -czf backups/app-backup-$(date +%Y%m%d-%H%M%S).tar.gz apps/educareappv1/
+
+# 3. Backup das configurações do Nginx
+sudo tar -czf backups/nginx-backup-$(date +%Y%m%d-%H%M%S).tar.gz /etc/nginx/sites-available/
+
+# 4. Verificar espaço em disco
+df -h
+```
+
+#### Verificar Status Atual
+```bash
+# Verificar serviços rodando
+pm2 status
+sudo systemctl status nginx postgresql
+
+# Verificar logs recentes
+pm2 logs educare-backend --lines 50
+sudo tail -n 50 /var/log/nginx/error.log
+```
+
+### 2. Atualização do Código
+
+#### Baixar Atualizações
+```bash
+# Navegar para o diretório da aplicação
+cd /home/educare/apps/educareappv1
+
+# Verificar branch atual
+git branch
+
+# Fazer backup da branch atual (se houver modificações locais)
+git stash push -m "Backup antes da atualização $(date)"
+
+# Baixar atualizações
+git fetch origin
+git pull origin main
+
+# Verificar se houve conflitos
+git status
+```
+
+### 3. Atualização do Backend
+
+#### Instalar Dependências
+```bash
+cd /home/educare/apps/educareappv1/educare-backend
+
+# Instalar/atualizar dependências
+npm install --production
+
+# Verificar se há migrations pendentes
+# (Se usando Sequelize CLI)
+npx sequelize-cli db:migrate:status
+
+# Executar migrations se necessário
+npx sequelize-cli db:migrate
+```
+
+#### Reiniciar Backend
+```bash
+# Parar aplicação
+pm2 stop educare-backend
+
+# Verificar se parou
+pm2 status
+
+# Iniciar novamente
+pm2 start educare-backend
+
+# Verificar logs
+pm2 logs educare-backend --lines 30
+```
+
+### 4. Atualização do Frontend
+
+#### Build e Deploy
+```bash
+cd /home/educare/apps/educareappv1
+
+# Instalar dependências (se houver atualizações)
+npm install --legacy-peer-deps
+
+# Fazer backup do build atual
+sudo mv /var/www/educare.whatscall.com.br /var/www/educare.whatscall.com.br.backup-$(date +%Y%m%d-%H%M%S)
+
+# Criar novo build
+npm run build
+
+# Copiar arquivos para Nginx
+sudo mkdir -p /var/www/educare.whatscall.com.br
+sudo cp -r dist/* /var/www/educare.whatscall.com.br/
+
+# Ajustar permissões
+sudo chown -R www-data:www-data /var/www/educare.whatscall.com.br
+sudo chmod -R 755 /var/www/educare.whatscall.com.br
+```
+
+### 5. Verificação Pós-Atualização
+
+#### Testes de Funcionamento
+```bash
+# 1. Verificar status dos serviços
+pm2 status
+sudo systemctl status nginx postgresql
+
+# 2. Testar configuração do Nginx
+sudo nginx -t
+
+# 3. Recarregar Nginx (se necessário)
+sudo systemctl reload nginx
+
+# 4. Verificar logs em tempo real
+pm2 logs educare-backend --lines 20
+```
+
+#### Testes Funcionais
+```bash
+# Testar endpoints principais
+curl -I https://educare.whatscall.com.br
+curl -I https://api.educare.whatscall.com.br/api/health
+
+# Verificar se a aplicação carrega
+wget --spider https://educare.whatscall.com.br
+```
+
+### 6. Rollback (Se Necessário)
+
+#### Em Caso de Problemas
+```bash
+# 1. Parar aplicação atual
+pm2 stop educare-backend
+
+# 2. Voltar para versão anterior do código
+cd /home/educare/apps/educareappv1
+git log --oneline -5  # Ver commits recentes
+git reset --hard COMMIT_ANTERIOR  # Substituir COMMIT_ANTERIOR pelo hash
+
+# 3. Restaurar frontend anterior
+sudo rm -rf /var/www/educare.whatscall.com.br
+sudo mv /var/www/educare.whatscall.com.br.backup-* /var/www/educare.whatscall.com.br
+
+# 4. Restaurar banco (se necessário)
+# CUIDADO: Isso apagará dados criados após o backup
+# psql -h localhost -U educare_user -d educare_db < /home/educare/backups/backup-YYYYMMDD.sql
+
+# 5. Reiniciar backend
+cd educare-backend
+npm install --production
+pm2 start educare-backend
+```
+
+### 7. Checklist de Atualização
+
+#### Pré-Atualização
+- [ ] Backup do banco de dados realizado
+- [ ] Backup dos arquivos da aplicação realizado
+- [ ] Backup das configurações do Nginx realizado
+- [ ] Status atual dos serviços verificado
+- [ ] Espaço em disco suficiente confirmado
+
+#### Durante a Atualização
+- [ ] Código atualizado via Git
+- [ ] Dependências do backend instaladas
+- [ ] Migrations executadas (se aplicável)
+- [ ] Backend reiniciado com sucesso
+- [ ] Frontend buildado e deployado
+- [ ] Permissões dos arquivos ajustadas
+
+#### Pós-Atualização
+- [ ] Todos os serviços rodando (PM2, Nginx, PostgreSQL)
+- [ ] Configuração do Nginx válida
+- [ ] Frontend carregando: https://educare.whatscall.com.br
+- [ ] API respondendo: https://api.educare.whatscall.com.br/api/health
+- [ ] Login/registro funcionando
+- [ ] Funcionalidades principais testadas
+- [ ] Logs sem erros críticos
+- [ ] Performance aceitável
+
+#### Em Caso de Problemas
+- [ ] Rollback executado (se necessário)
+- [ ] Logs de erro coletados
+- [ ] Causa raiz identificada
+- [ ] Plano de correção definido
+
+### 8. Automatização (Opcional)
+
+#### Script de Atualização
+```bash
+# Criar script de atualização automatizada
+nano /home/educare/scripts/update-app.sh
+```
+
+**Conteúdo do script:**
+```bash
+#!/bin/bash
+
+set -e  # Parar em caso de erro
+
+echo "=== INICIANDO ATUALIZAÇÃO DO EDUCAREAPP ==="
+echo "Data: $(date)"
+
+# Backup automático
+echo "1. Fazendo backup..."
+/home/educare/scripts/backup-db.sh
+cd /home/educare
+tar -czf backups/app-backup-$(date +%Y%m%d-%H%M%S).tar.gz apps/educareappv1/
+
+# Atualizar código
+echo "2. Atualizando código..."
+cd /home/educare/apps/educareappv1
+git pull origin main
+
+# Atualizar backend
+echo "3. Atualizando backend..."
+cd educare-backend
+npm install --production
+pm2 restart educare-backend
+
+# Atualizar frontend
+echo "4. Atualizando frontend..."
+cd ..
+npm install --legacy-peer-deps
+npm run build
+sudo cp -r dist/* /var/www/educare.whatscall.com.br/
+sudo chown -R www-data:www-data /var/www/educare.whatscall.com.br
+
+# Verificar
+echo "5. Verificando serviços..."
+pm2 status
+sudo nginx -t
+
+echo "=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ==="
+echo "Data: $(date)"
+```
+
+```bash
+# Tornar executável
+chmod +x /home/educare/scripts/update-app.sh
+
+# Executar atualização
+/home/educare/scripts/update-app.sh
+```
+
+### 9. Logs de Atualização
+
+#### Manter Histórico
+```bash
+# Criar log de atualizações
+echo "$(date): Atualização v1.x.x realizada com sucesso" >> /home/educare/logs/updates.log
+
+# Ver histórico
+tail -20 /home/educare/logs/updates.log
+```
+
+---
+
 ## Checklist de Deploy
 
 ### Pré-Deploy

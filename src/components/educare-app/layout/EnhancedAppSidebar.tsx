@@ -14,7 +14,9 @@ import {
   Crown,
   Shield,
   GraduationCap,
-  UserCheck
+  UserCheck,
+  MessageCircle,
+  UsersRound
 } from 'lucide-react';
 import {
   Sidebar,
@@ -86,6 +88,16 @@ const getNavigationItems = (userRole?: string) => {
         icon: UserCheck,
       },
       {
+        title: "Gestão de Crianças",
+        url: "/educare-app/owner/children",
+        icon: UsersRound,
+      },
+      {
+        title: "Gestão de Chats",
+        url: "/educare-app/owner/chats",
+        icon: MessageCircle,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/owner/plans",
         icon: CreditCard,
@@ -118,6 +130,11 @@ const getNavigationItems = (userRole?: string) => {
         icon: UserCheck,
       },
       {
+        title: "Gestão de Crianças",
+        url: "/educare-app/admin/children",
+        icon: UsersRound,
+      },
+      {
         title: "Gestão de Planos",
         url: "/educare-app/admin/plans",
         icon: CreditCard,
@@ -133,6 +150,11 @@ const getNavigationItems = (userRole?: string) => {
         title: "Dashboard Profissional",
         url: "/educare-app/professional/dashboard",
         icon: GraduationCap,
+      },
+      {
+        title: "Gestão de Crianças",
+        url: "/educare-app/professional/children",
+        icon: UsersRound,
       },
       {
         title: "Configurações",

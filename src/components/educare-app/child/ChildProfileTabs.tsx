@@ -5,14 +5,22 @@ import { ChildInfoTab } from './ChildInfoTab';
 import { ChildReportsTab } from './ChildReportsTab';
 import { Bot, User, FileText, MessageCircle } from 'lucide-react';
 import { TitiNautaAvatar } from '../journey-bot/TitiNautaAvatar';
-import { WhatsAppTeamChat } from '../team-chat/WhatsAppTeamChat';
+import { EnhancedTeamChat } from '../chat/EnhancedTeamChat';
 import { useNavigate } from 'react-router-dom';
 
 interface ChildProfileTabsProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   childId: string;
-  childData?: any;
+  childData?: {
+    id: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    birth_date?: string;
+    gender?: string;
+    [key: string]: unknown;
+  };
   isParent: boolean;
 }
 
@@ -85,7 +93,7 @@ export const ChildProfileTabs: React.FC<ChildProfileTabsProps> = ({
       </TabsContent>
 
       <TabsContent value="communication" className="mt-6">
-        <WhatsAppTeamChat childId={childId} childName={childData?.name || childData?.first_name || 'Criança'} />
+        <EnhancedTeamChat childId={childId} childName={childData?.name || childData?.first_name || 'Criança'} />
       </TabsContent>
     </Tabs>
   );

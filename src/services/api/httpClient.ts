@@ -110,6 +110,23 @@ class HttpClient {
       }
 
       // Processa resposta de sucesso
+      console.log('🔍 DEBUG HttpClient.processResponse - Dados recebidos do backend:', data);
+      console.log('🔍 DEBUG HttpClient.processResponse - data.success:', data.success);
+      console.log('🔍 DEBUG HttpClient.processResponse - typeof data.success:', typeof data.success);
+      
+      // Se o backend já retorna success: true, mantém a estrutura original
+      if (data.success !== undefined) {
+        console.log('✅ DEBUG: Backend retorna success, mantendo estrutura original');
+        return {
+          success: data.success,
+          data: data.data,
+          error: data.error,
+          message: data.message,
+        };
+      }
+      
+      // Para respostas que não seguem o padrão, processa como antes
+      console.log('⚠️ DEBUG: Backend NÃO retorna success, processando como antes');
       const processedData = data.data !== undefined ? data.data : data;
       
       return {
