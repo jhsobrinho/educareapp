@@ -26,10 +26,23 @@ exports.register = async (req, res) => {
     
     console.log('Validação passou, processando registro...');
 
-    const { email, phone, password, name, firstName, lastName, role, plan_id } = req.body;
+    const { email, phone, password, name, firstName, lastName, role, plan_id, profile } = req.body;
 
     // Mapear role 'parent' para 'user' (compatibilidade com ENUM do banco)
     const mappedRole = role === 'parent' ? 'user' : role;
+    
+    // Gerar senha temporária se não fornecida (para profissionais criados pelo admin)
+    let finalPassword = password;
+    if (!password && mappedRole === 'professional' && req.headers.authorization) {
+      // Gerar senha temporária de 16 caracteres
+      finalPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      console.log(`Senha temporária gerada para profissional: ${finalPassword}`);
+    }
+    
+    // Verificar se temos senha (fornecida ou gerada)
+    if (!finalPassword) {
+      return res.status(400).json({ error: 'Senha é obrigatória' });
+    }
 
     // Verificar se pelo menos email ou telefone foi fornecido
     if (!email && !phone) {
@@ -66,19 +79,31 @@ exports.register = async (req, res) => {
     const user = await User.create({
       email,
       phone,
-      password,
+      password: finalPassword,
       name,
       role: mappedRole || 'user',
       status: 'active'  // Definir como ativo automaticamente para pais/users
     });
 
     // Criar perfil do usuário
-    await Profile.create({
+    const profileData = {
       user_id: user.id,
       name: name,
       type: mappedRole === 'professional' ? 'professional' : 'parent',
       phone: phone
-    });
+    };
+    
+    // Se é um profissional e tem dados de perfil, incluir informações adicionais
+    if (mappedRole === 'professional' && profile) {
+      if (profile.specialization) profileData.specialization = profile.specialization;
+      if (profile.bio) profileData.bio = profile.bio;
+      if (profile.city) profileData.city = profile.city;
+      if (profile.state) profileData.state = profile.state;
+      if (profile.experience_years !== undefined) profileData.experience_years = profile.experience_years;
+      if (profile.certifications) profileData.certifications = JSON.stringify(profile.certifications);
+    }
+    
+    await Profile.create(profileData);
 
     // Criar assinatura - com plano fornecido ou plano padrão gratuito
     const { SubscriptionPlan, Subscription } = require('../models');
@@ -158,8 +183,8 @@ exports.register = async (req, res) => {
     const token = generateToken(user.id);
     const refreshToken = generateToken(user.id); // Por enquanto, mesmo token (pode ser melhorado)
 
-    // Retornar dados do usuário (sem a senha), token e refreshToken
-    return res.status(201).json({
+    // Preparar resposta
+    const response = {
       user: {
         id: user.id,
         email: user.email,
@@ -168,7 +193,16 @@ exports.register = async (req, res) => {
       },
       token,
       refreshToken
-    });
+    };
+    
+    // Se é um profissional criado pelo admin com senha temporária, incluir a senha na resposta
+    if (mappedRole === 'professional' && req.headers.authorization && !password) {
+      response.temporaryPassword = finalPassword;
+      response.message = 'Profissional criado com sucesso. Senha temporária gerada.';
+    }
+    
+    // Retornar dados do usuário
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
     return res.status(500).json({ error: 'Erro ao registrar usuário' });

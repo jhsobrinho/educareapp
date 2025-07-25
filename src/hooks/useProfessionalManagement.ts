@@ -25,17 +25,41 @@ export interface Professional {
   };
 }
 
+export interface CreateProfessionalData {
+  name: string;
+  email: string;
+  phone?: string;
+  role: 'professional';
+  profile: {
+    specialization?: string;
+    bio?: string;
+    city?: string;
+    state?: string;
+    experience_years?: number;
+    certifications?: string[];
+  };
+}
+
+export interface TemporaryPasswordData {
+  professionalName: string;
+  professionalEmail: string;
+  temporaryPassword: string;
+}
+
 export interface UseProfessionalsReturn {
   professionals: Professional[];
   loading: boolean;
   error: string | null;
   total: number;
+  temporaryPasswordData: TemporaryPasswordData | null;
   
   // Ações
   fetchProfessionals: () => Promise<void>;
   refreshData: () => Promise<void>;
+  createProfessional: (data: CreateProfessionalData) => Promise<{ success: boolean; temporaryPasswordData?: TemporaryPasswordData }>;
   updateProfessional: (id: string, data: Partial<Professional>) => Promise<boolean>;
   deleteProfessional: (id: string) => Promise<boolean>;
+  clearTemporaryPasswordData: () => void;
 }
 
 export const useProfessionalManagement = (): UseProfessionalsReturn => {
@@ -44,11 +68,12 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [temporaryPasswordData, setTemporaryPasswordData] = useState<TemporaryPasswordData | null>(null);
   
   const { toast } = useToast();
 
   // Função principal para buscar profissionais
-  const fetchProfessionals = useCallback(async () => {
+  const fetchProfessionals = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
@@ -104,9 +129,81 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
   }, [toast]);
 
   // Função para atualizar dados (força nova requisição)
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (): Promise<void> => {
     await fetchProfessionals();
   }, [fetchProfessionals]);
+
+  // Função para criar novo profissional
+  const createProfessional = useCallback(async (data: CreateProfessionalData): Promise<{ success: boolean; temporaryPasswordData?: TemporaryPasswordData }> => {
+    try {
+      console.log('=== DEBUG: Criando profissional ===');
+      console.log('Dados enviados:', data);
+      
+      const requestData = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        profile: data.profile
+      };
+      
+      console.log('Payload da requisição:', requestData);
+      
+      const response = await httpClient.post('/auth/register', requestData);
+      
+      console.log('Resposta do servidor:', response);
+      
+      if (response.success) {
+        // Verificar se há senha temporária na resposta
+        if (response.data?.temporaryPassword) {
+          const tempPasswordData: TemporaryPasswordData = {
+            professionalName: data.name,
+            professionalEmail: data.email,
+            temporaryPassword: response.data.temporaryPassword
+          };
+          
+          // Armazenar dados da senha temporária para exibir no modal
+          setTemporaryPasswordData(tempPasswordData);
+          
+          // Atualizar lista após criação
+          await fetchProfessionals();
+          
+          return { success: true, temporaryPasswordData: tempPasswordData };
+        } else {
+          toast({
+            title: "Sucesso",
+            description: "Profissional cadastrado com sucesso",
+            variant: "default",
+          });
+          
+          // Atualizar lista após criação
+          await fetchProfessionals();
+          
+          return { success: true };
+        }
+      } else {
+        console.error('Erro na resposta do servidor:', response);
+        console.error('Detalhes do erro:', response.error);
+        
+        toast({
+          title: "Erro",
+          description: response.error || "Erro ao cadastrar profissional",
+          variant: "destructive",
+        });
+        return { success: false };
+      }
+    } catch (err) {
+      console.error('Erro na requisição:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Erro inesperado';
+      
+      toast({
+        title: "Erro",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+  }, [fetchProfessionals, toast]);
 
   // Função para atualizar profissional
   const updateProfessional = useCallback(async (id: string, data: Partial<Professional>): Promise<boolean> => {
@@ -176,6 +273,11 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
     }
   }, [fetchProfessionals, toast]);
 
+  // Função para limpar dados da senha temporária
+  const clearTemporaryPasswordData = useCallback(() => {
+    setTemporaryPasswordData(null);
+  }, []);
+
   // Carregar dados na inicialização
   useEffect(() => {
     fetchProfessionals();
@@ -186,10 +288,13 @@ export const useProfessionalManagement = (): UseProfessionalsReturn => {
     loading,
     error,
     total,
+    temporaryPasswordData,
     fetchProfessionals,
     refreshData,
+    createProfessional,
     updateProfessional,
     deleteProfessional,
+    clearTemporaryPasswordData,
   };
 };
 

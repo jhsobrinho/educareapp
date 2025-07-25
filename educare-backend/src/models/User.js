@@ -22,7 +22,8 @@ const User = sequelize.define('User', {
     allowNull: true,
     unique: true,
     validate: {
-      is: /^\+?[0-9]{10,15}$/
+      // Aceitar apenas números (10-11 dígitos para telefones brasileiros)
+      is: /^[0-9]{10,11}$/
     }
   },
   password: {

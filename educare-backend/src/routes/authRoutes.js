@@ -109,7 +109,8 @@ router.post(
   '/register',
   [
     body('email').isEmail().withMessage('Email inválido'),
-    body('password').isLength({ min: 6 }).withMessage('Senha deve ter no mínimo 6 caracteres'),
+    // Senha é opcional para profissionais criados pelo admin
+    body('password').optional().isLength({ min: 6 }).withMessage('Senha deve ter no mínimo 6 caracteres'),
     body('name').notEmpty().withMessage('Nome é obrigatório'),
     body('role').optional().isIn(['user', 'parent', 'professional', 'admin', 'owner']).withMessage('Papel inválido')
   ],

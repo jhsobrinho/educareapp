@@ -19,6 +19,8 @@ import {
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { useUserManagement } from '@/hooks/useUserManagement';
 import { useActivityFeed } from '@/hooks/useActivityFeed';
+import { useStatistics } from '@/hooks/useStatistics';
+import ChildrenRegistrationChart from '@/components/charts/ChildrenRegistrationChart';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -26,6 +28,7 @@ const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const { users } = useUserManagement();
   const { activities, stats, isLoading: activitiesLoading, error: activitiesError, refreshActivities } = useActivityFeed();
+  const { childrenStats, isLoading: statsLoading } = useStatistics();
   
   // Count users by role
   const userCounts = {
@@ -194,18 +197,10 @@ const AdminDashboard: React.FC = () => {
             </Card>
             
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Crianças Registradas</CardTitle>
-                  <CardDescription>Total por mês</CardDescription>
-                </CardHeader>
-                <CardContent className="h-80 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <p className="mb-2">Gráfico de crescimento</p>
-                    <p className="text-sm">[Dados de exemplo - implementar gráfico real]</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <ChildrenRegistrationChart 
+                data={childrenStats} 
+                isLoading={statsLoading}
+              />
               
               <Card>
                 <CardHeader>

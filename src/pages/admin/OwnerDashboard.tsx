@@ -3,6 +3,8 @@ import { Helmet } from 'react-helmet-async';
 import { useCustomAuth } from '@/hooks/useCustomAuth';
 import { Navigate } from 'react-router-dom';
 import { dashboardService, type DashboardMetrics, type SubscriptionPlanMetrics } from '@/services/dashboardService';
+import { subscriptionPlansService, type SubscriptionPlan } from '@/services/subscriptionPlansService';
+import { subscriptionStatsService, type SubscriptionStats, type DashboardStats } from '@/services/subscriptionStatsService';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +23,8 @@ const OwnerDashboard: React.FC = () => {
   const { toast } = useToast();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [planMetrics, setPlanMetrics] = useState<SubscriptionPlanMetrics[]>([]);
+  const [realPlans, setRealPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscriptionStats, setSubscriptionStats] = useState<SubscriptionStats[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Carregar dados do dashboard
@@ -28,21 +32,56 @@ const OwnerDashboard: React.FC = () => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const [dashboardMetrics, subscriptionPlanMetrics] = await Promise.all([
-          dashboardService.getDashboardMetrics(),
-          dashboardService.getSubscriptionPlanMetrics()
+        
+        // Carregar dados reais de assinaturas e estatísticas
+        const [subscriptionStats, dashboardStats] = await Promise.all([
+          subscriptionStatsService.getSubscriptionStatsByPlan(),
+          subscriptionStatsService.getDashboardStats()
         ]);
         
-        setMetrics(dashboardMetrics);
-        setPlanMetrics(subscriptionPlanMetrics);
+        console.log('loadDashboardData - Estatísticas de assinatura:', subscriptionStats);
+        console.log('loadDashboardData - Estatísticas do dashboard:', dashboardStats);
+        
+        // Armazenar dados detalhados das assinaturas para uso na interface
+        setSubscriptionStats(subscriptionStats);
+        
+        // Converter estatísticas reais para formato do dashboard
+        const planMetricsData: SubscriptionPlanMetrics[] = subscriptionStats.map(stat => ({
+          planName: stat.planName,
+          subscriberCount: stat.subscriberCount,
+          revenue: stat.revenue, // Receita real baseada em assinantes reais
+          growthPercentage: stat.growthPercentage
+        }));
+        
+        setPlanMetrics(planMetricsData);
+        
+        // Usar métricas reais do dashboard
+        const realMetrics: DashboardMetrics = {
+          totalUsers: dashboardStats.totalUsers,
+          activeSubscriptions: dashboardStats.activeSubscriptions,
+          monthlyRevenue: dashboardStats.monthlyRevenue,
+          churnRate: dashboardStats.churnRate,
+          systemHealth: dashboardStats.systemHealth,
+          newUsersToday: dashboardStats.newUsersToday,
+          conversionRate: dashboardStats.conversionRate,
+          uptime: dashboardStats.uptime
+        };
+        
+        setMetrics(realMetrics);
+        
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
-        // Removido toast para evitar loop infinito
-        // toast({
-        //   title: "Erro",
-        //   description: "Não foi possível carregar os dados do dashboard.",
-        //   variant: "destructive",
-        // });
+        // Fallback com dados básicos
+        setMetrics({
+          totalUsers: 0,
+          activeSubscriptions: 0,
+          monthlyRevenue: 0,
+          churnRate: 0,
+          systemHealth: 0,
+          newUsersToday: 0,
+          conversionRate: 0,
+          uptime: 0
+        });
       } finally {
         setLoading(false);
       }
@@ -178,24 +217,88 @@ const OwnerDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               {planMetrics.length > 0 ? (
-                planMetrics.map((plan, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium">{plan.planName}</h4>
-                      <p className="text-sm text-muted-foreground">{plan.subscriberCount} assinantes</p>
+                planMetrics.map((plan, index) => {
+                  // Buscar dados detalhados do serviço de estatísticas
+                  const detailedStats = subscriptionStats?.find(stat => stat.planName === plan.planName);
+                  const trialCount = detailedStats?.trialSubscriptions || 0;
+                  const activeCount = detailedStats?.activeSubscriptions || 0;
+                  const unitPrice = detailedStats?.price || 0;
+                  const trialRevenue = trialCount * unitPrice;
+                  const activeRevenue = activeCount * unitPrice;
+                  const conversionRate = (trialCount + activeCount) > 0 ? (activeCount / (trialCount + activeCount)) * 100 : 0;
+                  
+                  return (
+                    <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium text-lg">{plan.planName}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Total: {plan.subscriberCount} assinantes
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg text-green-600">
+                            R$ {plan.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Receita Total</p>
+                        </div>
+                      </div>
+                      
+                      {/* Detalhamento Trial vs Efetivos */}
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                        {/* Coluna Trial */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-orange-600">🔄 Trial</span>
+                            <Badge variant="outline" className="text-orange-600 border-orange-200">
+                              {trialCount} usuários
+                            </Badge>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-orange-600">
+                              R$ {trialRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Receita Potencial</p>
+                          </div>
+                        </div>
+                        
+                        {/* Coluna Efetivos */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-600">💰 Efetivos</span>
+                            <Badge variant="outline" className="text-green-600 border-green-200">
+                              {activeCount} usuários
+                            </Badge>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-green-600">
+                              R$ {activeRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Receita Real</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Taxa de Conversão */}
+                      <div className="mt-3 pt-2 border-t border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Taxa de Conversão</span>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-20 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                style={{ width: `${Math.min(conversionRate, 100)}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium text-blue-600">
+                              {conversionRate.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">
-                        R$ {plan.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className={`text-xs ${
-                        plan.growthPercentage >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {plan.growthPercentage >= 0 ? '+' : ''}{plan.growthPercentage.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Nenhum plano encontrado</p>

@@ -47,7 +47,7 @@ export function AllChatsView() {
     if (!canViewAllChats) {
       toast({
         title: "Acesso negado",
-        description: "Apenas proprietários podem visualizar todos os chats.",
+        description: "Apenas proprietários e administradores podem visualizar todos os chats.",
         variant: "destructive",
       });
       navigate('/educare-app/dashboard');

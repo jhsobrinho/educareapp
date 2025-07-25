@@ -27,15 +27,15 @@ export function useChatRBAC(): ChatRBACHook {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Verificar se o usuário pode ver todos os chats (apenas owner)
-  const canViewAllChats = user?.role === 'owner';
+  // Verificar se o usuário pode ver todos os chats (owner e admin)
+  const canViewAllChats = user?.role === 'owner' || user?.role === 'admin';
 
   // Verificar se o usuário pode acessar um chat específico
   const canAccessChat = useCallback((groupId: string): boolean => {
     if (!user || !isAuthenticated) return false;
     
-    // Owner pode acessar qualquer chat
-    if (user.role === 'owner') return true;
+    // Owner e Admin podem acessar qualquer chat
+    if (user.role === 'owner' || user.role === 'admin') return true;
     
     // Outros usuários só podem acessar chats dos quais participam
     return groups.some(group => group.id === groupId);
@@ -67,10 +67,10 @@ export function useChatRBAC(): ChatRBACHook {
     }
   }, [isAuthenticated, user]);
 
-  // Carregar todos os chats do sistema (apenas para owner)
+  // Carregar todos os chats do sistema (para owner e admin)
   const loadAllChats = useCallback(async () => {
-    if (!isAuthenticated || !user || user.role !== 'owner') {
-      setError('Acesso negado. Apenas proprietários podem visualizar todos os chats.');
+    if (!isAuthenticated || !user || (user.role !== 'owner' && user.role !== 'admin')) {
+      setError('Acesso negado. Apenas proprietários e administradores podem visualizar todos os chats.');
       return;
     }
 

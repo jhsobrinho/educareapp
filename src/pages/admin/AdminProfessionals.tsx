@@ -16,9 +16,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-import { useProfessionalManagement, Professional } from '@/hooks/useProfessionalManagement';
+import { useProfessionalManagement, Professional, CreateProfessionalData } from '@/hooks/useProfessionalManagement';
 import { formatDate } from '@/utils/dateUtils';
 import EditProfessionalModal from '@/components/admin/EditProfessionalModal';
+import CreateProfessionalModal from '@/components/admin/CreateProfessionalModal';
+import TemporaryPasswordModal from '@/components/admin/TemporaryPasswordModal';
 
 const AdminProfessionals: React.FC = () => {
   // Hook simplificado
@@ -27,9 +29,12 @@ const AdminProfessionals: React.FC = () => {
     loading,
     error,
     total,
+    temporaryPasswordData,
     refreshData,
+    createProfessional,
     updateProfessional,
     deleteProfessional,
+    clearTemporaryPasswordData,
   } = useProfessionalManagement();
 
   // Estados locais para filtros
@@ -40,6 +45,9 @@ const AdminProfessionals: React.FC = () => {
   // Estados para edição
   const [editingProfessional, setEditingProfessional] = useState<Professional | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // Estados para criação
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Filtrar profissionais localmente
   const filteredProfessionals = professionals.filter(prof => {
@@ -90,6 +98,25 @@ const AdminProfessionals: React.FC = () => {
     await refreshData();
   };
 
+  // Funções para modal de criação
+  const handleOpenCreateModal = () => {
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+  };
+
+  const handleSaveCreate = async (professionalData: CreateProfessionalData): Promise<boolean> => {
+    const result = await createProfessional(professionalData);
+    if (result.success) {
+      handleCloseCreateModal();
+      // Não precisa fazer nada aqui, o modal de senha temporária será aberto automaticamente
+      // se houver temporaryPasswordData no hook
+    }
+    return result.success;
+  };
+
   return (
     <>
       <Helmet>
@@ -116,7 +143,7 @@ const AdminProfessionals: React.FC = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Button>
+            <Button onClick={handleOpenCreateModal}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Profissional
             </Button>
@@ -321,6 +348,22 @@ const AdminProfessionals: React.FC = () => {
           isOpen={isEditModalOpen}
           onClose={handleCloseEditModal}
           onSave={handleSaveEdit}
+        />
+
+        {/* Modal de criação */}
+        <CreateProfessionalModal
+          isOpen={isCreateModalOpen}
+          onClose={handleCloseCreateModal}
+          onSave={handleSaveCreate}
+        />
+
+        {/* Modal de senha temporária */}
+        <TemporaryPasswordModal
+          isOpen={!!temporaryPasswordData}
+          onClose={clearTemporaryPasswordData}
+          professionalName={temporaryPasswordData?.professionalName || ''}
+          professionalEmail={temporaryPasswordData?.professionalEmail || ''}
+          temporaryPassword={temporaryPasswordData?.temporaryPassword || ''}
         />
       </div>
     </>

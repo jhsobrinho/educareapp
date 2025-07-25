@@ -409,7 +409,10 @@ const SubscriptionPlansManagement: React.FC = () => {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="text-2xl font-bold">
-                  {formatCurrency(plans.reduce((sum, plan) => sum + plan.price, 0))}
+                  {formatCurrency(plans.reduce((sum, plan) => {
+                    const price = typeof plan.price === 'number' && !isNaN(plan.price) ? plan.price : 0;
+                    return sum + price;
+                  }, 0))}
                 </div>
                 <DollarSign className="h-8 w-8 text-emerald-500" />
               </div>

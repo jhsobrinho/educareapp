@@ -135,9 +135,9 @@ const getNavigationItems = (userRole?: string) => {
         icon: UsersRound,
       },
       {
-        title: "Gestão de Planos",
-        url: "/educare-app/admin/plans",
-        icon: CreditCard,
+        title: "Gestão de Chats",
+        url: "/educare-app/admin/chats",
+        icon: MessageCircle,
       },
       ...baseItems,
     ];
