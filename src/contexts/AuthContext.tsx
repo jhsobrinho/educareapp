@@ -2,6 +2,7 @@
 import { createContext } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { UserRole, User } from '@/types/auth';
+import type { PhoneLoginResult } from '@/services/api/authService';
 
 export interface AuthContextType {
   user: User | null;
@@ -27,6 +28,8 @@ export interface AuthContextType {
   updateProfile: (profileData: Partial<User>) => Promise<boolean>;
   handleSendPhoneVerification: (phone: string) => Promise<boolean>;
   handleVerifyPhoneCode: (phone: string, code: string) => Promise<User | null>;
+  handleLoginByPhone: (phone: string) => Promise<PhoneLoginResult>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

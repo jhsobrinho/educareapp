@@ -19,19 +19,24 @@ const JornadaQuizPage: React.FC = () => {
     queryFn: async () => {
       if (!childId || !user?.id) return null;
       
-      const { data, error } = await supabase
-        .from('educare_children')
-        .select('*')
-        .eq('id', childId)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/children/${childId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return result.data;
+      } catch (error) {
         console.error('Error fetching child:', error);
         throw error;
       }
-      
-      return data;
     },
     enabled: !!childId && !!user?.id,
   });

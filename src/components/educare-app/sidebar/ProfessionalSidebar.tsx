@@ -10,11 +10,12 @@ import {
   Settings,
   MessageCircle,
   Calendar,
-  BarChart
+  BarChart,
+  Bot
 } from 'lucide-react';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 
-const NavItem = ({ to, icon: Icon, label, active }: { to: string; icon: any; label: string; active?: boolean }) => {
+const NavItem = ({ to, icon: Icon, label, active, notification }: { to: string; icon: React.ElementType; label: string; active?: boolean; notification?: boolean }) => {
   return (
     <NavLink
       to={to}
@@ -29,6 +30,9 @@ const NavItem = ({ to, icon: Icon, label, active }: { to: string; icon: any; lab
     >
       <Icon className="h-4 w-4" />
       <span>{label}</span>
+      {notification && (
+        <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+      )}
     </NavLink>
   );
 };
@@ -67,6 +71,7 @@ const ProfessionalSidebar: React.FC = () => {
       <nav className="flex-1 p-4 space-y-1">
         <NavItem to="/educare-app/dashboard" icon={Home} label="Dashboard" />
         <NavItem to="/educare-app/professional/dashboard" icon={Users} label="Pacientes" />
+        <NavItem to="/educare-app/titinauta-journey" icon={Bot} label="TitiNauta 2.0" notification={true} />
         <NavItem to="/smart-pei/students" icon={Users} label="Alunos" />
         <NavItem to="/smart-pei/assessments" icon={ClipboardList} label="Avaliações" />
         <NavItem to="/smart-pei/activities" icon={Calendar} label="Atividades" />

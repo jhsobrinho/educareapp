@@ -36,9 +36,8 @@ exports.getChildById = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id', 'email'] }]
       }]
     });
     
@@ -47,7 +46,7 @@ exports.getChildById = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para acessar a criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       // Verificar se o usuário é um profissional com acesso à criança
       // Implementar lógica de verificação de acesso de profissionais aqui
       
@@ -155,9 +154,8 @@ exports.updateChild = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -166,7 +164,7 @@ exports.updateChild = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para atualizar a criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -196,9 +194,8 @@ exports.deleteChild = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -207,7 +204,7 @@ exports.deleteChild = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para excluir a criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -252,9 +249,8 @@ exports.addChildDocument = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -263,7 +259,7 @@ exports.addChildDocument = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para adicionar documentos à criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -303,9 +299,8 @@ exports.removeChildDocument = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -314,7 +309,7 @@ exports.removeChildDocument = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para remover documentos da criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -362,9 +357,8 @@ exports.addDevelopmentNote = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -373,7 +367,7 @@ exports.addDevelopmentNote = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para adicionar notas à criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -415,9 +409,8 @@ exports.listDevelopmentNotes = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -426,7 +419,7 @@ exports.listDevelopmentNotes = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para ver notas da criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -465,9 +458,8 @@ exports.updateDevelopmentNote = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -476,7 +468,7 @@ exports.updateDevelopmentNote = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para atualizar notas da criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     
@@ -528,9 +520,8 @@ exports.deleteDevelopmentNote = async (req, res) => {
     // Buscar criança pelo ID
     const child = await Child.findByPk(id, {
       include: [{ 
-        model: Profile, 
-        as: 'profile',
-        include: [{ model: User, as: 'user', attributes: ['id'] }]
+        model: Profile,
+        include: [{ model: User, attributes: ['id'] }]
       }]
     });
     
@@ -539,7 +530,7 @@ exports.deleteDevelopmentNote = async (req, res) => {
     }
     
     // Verificar se o usuário tem permissão para excluir notas da criança
-    if (child.profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
+    if (child.Profile.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'owner') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     

@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { journeyBotService } from '@/services/journeyBotService';
+import { getChild } from '@/services/api/childService';
 import { DatabaseAdapter, AgeRangeModule } from '@/data/journey-bot/adapters/DatabaseAdapter';
 import { PersonalizationEngine, PersonalizationContext } from '@/data/journey-bot/adapters/PersonalizationEngine';
 import { WhatsAppMessage } from '../WhatsAppChatContainer';
@@ -47,6 +48,10 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
+  // Initialization flag to prevent infinite loops
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  
   // Refs for debouncing
   const nextQuestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -73,14 +78,10 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
       console.log('🔍 Carregando respostas já existentes para filtrar perguntas repetidas...');
       
       // Load existing responses for this child
-      const { data: existingResponses, error } = await supabase
-        .from('journey_bot_responses')
-        .select('question_id, answer, answer_text')
-        .eq('child_id', childId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('❌ Erro ao carregar respostas existentes:', error);
+      const existingResponses = await journeyBotService.getChildResponses(childId, user.id);
+      
+      if (!existingResponses) {
+        console.error('❌ Erro ao carregar respostas existentes');
         return modules;
       }
 
@@ -147,18 +148,59 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
     }
   }, [user, childId]);
 
-  // Initialize data and personalization
+  const createOrLoadSession = useCallback(async (modules: AgeRangeModule[] = []) => {
+    if (!user || !childId) return;
+
+    try {
+      // Try to find existing session
+      const existingSession = await journeyBotService.getActiveSession(childId, user.id);
+
+      if (existingSession) {
+        setSession(existingSession);
+      } else {
+        // Create new session
+        const totalQuestions = modules.reduce((sum, module) => sum + module.totalQuestions, 0);
+        const newSession = await journeyBotService.createSession({
+          user_id: user.id,
+          child_id: childId,
+          total_questions: totalQuestions,
+          answered_questions: 0,
+          status: 'active',
+          session_data: {}
+        });
+
+        if (newSession) {
+          setSession(newSession);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating/loading session:', error);
+    }
+  }, [user, childId]);
+
+  // Initialize bot and load data
   useEffect(() => {
     const initializeBot = async () => {
+      // Evitar múltiplas inicializações
+      if (isInitialized || isInitializing) {
+        console.log('🚫 Inicialização já em andamento ou concluída, pulando...');
+        return;
+      }
+
+      setIsInitializing(true);
+      console.log('🚀 Iniciando TitiNauta...');
+      
       try {
         // Load age range modules
         console.log('🔄 Carregando módulos por faixa etária para idade:', childAgeInMonths, 'meses');
         const modules = await DatabaseAdapter.getAgeRangeModulesForAge(childAgeInMonths);
         console.log('✅ Módulos carregados:', modules.length);
         
+        let filteredModules: AgeRangeModule[] = [];
+        
         if (modules.length > 0) {
           // Filter modules based on answered questions
-          const filteredModules = await loadAnsweredQuestionsAndFilterModules(modules);
+          filteredModules = await loadAnsweredQuestionsAndFilterModules(modules);
           setAgeRangeModules(filteredModules);
           
           // Create current module metadata
@@ -171,70 +213,31 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
 
         // Load child data for personalization
         if (childId) {
-          const { data: childData } = await supabase
-            .from('educare_children')
-            .select('*')
-            .eq('id', childId)
-            .single();
-
-          if (childData) {
-            const context = PersonalizationEngine.extractPersonalizationFromChild(childData);
+          const childResponse = await getChild(childId);
+          
+          if (childResponse.success && childResponse.data) {
+            const context = PersonalizationEngine.extractPersonalizationFromChild(childResponse.data);
             setPersonalizationContext(context);
           }
         }
 
-        // Create or load session
-        await createOrLoadSession();
+        // Create or load session with the filtered modules
+        await createOrLoadSession(filteredModules);
+        
+        // Marcar como inicializado
+        setIsInitialized(true);
+        console.log('✅ TitiNauta inicializado com sucesso!');
       } catch (error) {
-        console.error('Error initializing WhatsApp Journey Bot:', error);
+        console.error('❌ Erro ao inicializar TitiNauta:', error);
+      } finally {
+        setIsInitializing(false);
       }
     };
 
-    if (user && childId) {
+    if (user && childId && !isInitialized && !isInitializing) {
       initializeBot();
     }
-  }, [user, childId, childAgeInMonths, loadAnsweredQuestionsAndFilterModules]);
-
-  const createOrLoadSession = async () => {
-    if (!user || !childId) return;
-
-    try {
-      // Try to find existing session
-      const { data: existingSessions } = await supabase
-        .from('journey_bot_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('child_id', childId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (existingSessions && existingSessions.length > 0) {
-        setSession(existingSessions[0] as JourneyBotSession);
-      } else {
-        // Create new session
-        const totalQuestions = ageRangeModules.reduce((sum, module) => sum + module.totalQuestions, 0);
-        const { data: newSession } = await supabase
-          .from('journey_bot_sessions')
-          .insert({
-            user_id: user.id,
-            child_id: childId,
-            total_questions: totalQuestions,
-            answered_questions: 0,
-            status: 'active',
-            session_data: {}
-          })
-          .select()
-          .single();
-
-        if (newSession) {
-          setSession(newSession as JourneyBotSession);
-        }
-      }
-    } catch (error) {
-      console.error('Error creating/loading session:', error);
-    }
-  };
+  }, [user, childId, childAgeInMonths, isInitialized, isInitializing]); // Adicionadas flags de controle
 
   const addMessage = useCallback((content: string, type: 'bot' | 'user' = 'bot') => {
     const message: WhatsAppMessage = {
@@ -295,14 +298,11 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
 
     // Update session as completed
     if (session) {
-      await supabase
-        .from('journey_bot_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          answered_questions: responses.length
-        })
-        .eq('id', session.id);
+      await journeyBotService.updateSession(session.id, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        answered_questions: responses.length
+      });
     }
 
     // Update child progress based on completed sessions
@@ -429,16 +429,12 @@ export const useWhatsAppJourneyBot = ({ childId, childAge }: UseWhatsAppJourneyB
 
     // Save to database
     if (session && user) {
-      await supabase.from('journey_bot_responses').insert({
-        session_id: session.id,
+      await journeyBotService.saveResponse({
         user_id: user.id,
         child_id: childId,
         question_id: currentQuestion.id,
         answer: value,
-        dimension: currentQuestion.dimension,
-        question_text: currentQuestion.question_text,
-        answer_text: text,
-        responded_at: new Date().toISOString()
+        answer_text: text
       });
 
       // Update child progress after saving response

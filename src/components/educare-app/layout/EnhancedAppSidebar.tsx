@@ -16,7 +16,10 @@ import {
   GraduationCap,
   UserCheck,
   MessageCircle,
-  UsersRound
+  MessageSquare,
+  UsersRound,
+  Rocket,
+  FileVideo
 } from 'lucide-react';
 import {
   Sidebar,
@@ -34,8 +37,16 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
+// Interface para os itens de navegação
+interface NavigationItem {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  badge?: string;
+}
+
 // Função para obter itens de navegação baseado no role do usuário
-const getNavigationItems = (userRole?: string) => {
+const getNavigationItems = (userRole?: string): NavigationItem[] => {
   const baseItems = [
     {
       title: "Dashboard",
@@ -53,9 +64,25 @@ const getNavigationItems = (userRole?: string) => {
       icon: Bot,
     },
     {
+      title: "TitiNauta 2.0",
+      url: "/educare-app/titinauta-journey",
+      icon: Bot,
+      badge: "Novo"
+    },
+    {
+      title: "Jornada 2.0",
+      url: "/educare-app/journey-v2",
+      icon: Rocket,
+    },
+    {
       title: "Atividades",
       url: "/educare-app/activities",
       icon: Calendar,
+    },
+    {
+      title: "Comunicação",
+      url: "/educare-app/communication",
+      icon: MessageCircle,
     },
     {
       title: "Configurações",
@@ -96,6 +123,21 @@ const getNavigationItems = (userRole?: string) => {
         title: "Gestão de Chats",
         url: "/educare-app/owner/chats",
         icon: MessageCircle,
+      },
+      {
+        title: "Gestão de Perguntas",
+        url: "/educare-app/admin/journey-questions",
+        icon: MessageSquare,
+      },
+      {
+        title: "Gestor de Mídias",
+        url: "/educare-app/owner/media-resources",
+        icon: FileVideo,
+      },
+      {
+        title: "Jornada 2.0",
+        url: "/educare-app/journey-v2",
+        icon: Rocket,
       },
       {
         title: "Gestão de Planos",
@@ -139,6 +181,16 @@ const getNavigationItems = (userRole?: string) => {
         url: "/educare-app/admin/chats",
         icon: MessageCircle,
       },
+      {
+        title: "Gestão de Perguntas",
+        url: "/educare-app/admin/journey-questions",
+        icon: MessageSquare,
+      },
+      {
+        title: "Gestor de Mídias",
+        url: "/educare-app/admin/media-resources",
+        icon: FileVideo,
+      },
       ...baseItems,
     ];
   }
@@ -168,7 +220,7 @@ const getNavigationItems = (userRole?: string) => {
 };
 
 export function EnhancedAppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
   const { state } = useSidebar();
   
   // Obter itens de navegação baseado no role do usuário
@@ -204,6 +256,11 @@ export function EnhancedAppSidebar({ ...props }: React.ComponentProps<typeof Sid
                     >
                       <item.icon />
                       <span>{item.title}</span>
+                      {item.badge && (
+                        <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
+                          {item.badge}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -219,9 +276,7 @@ export function EnhancedAppSidebar({ ...props }: React.ComponentProps<typeof Sid
             <SidebarMenuItem>
               <div className="flex items-center space-x-2 p-2">
                 <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                    <User className="h-4 w-4" />
-                  </div>
+                  <User className="h-5 w-5 text-primary" />
                 </div>
                 {state === "expanded" && (
                   <div className="min-w-0 flex-1">
@@ -233,18 +288,20 @@ export function EnhancedAppSidebar({ ...props }: React.ComponentProps<typeof Sid
                 )}
               </div>
             </SidebarMenuItem>
-            {state === "expanded" && (
-              <SidebarMenuItem>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={signOut}
-                  className="w-full justify-start text-sm"
-                >
-                  Sair
-                </Button>
-              </SidebarMenuItem>
-            )}
+            
+            {/* Botão de sair - visível em ambos os estados */}
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={logout}>
+                {state === "expanded" ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                    <span>Sair</span>
+                  </>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         )}
       </SidebarFooter>

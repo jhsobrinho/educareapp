@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, CheckCircle, Mail, Phone, CreditCard } from 'lucide-react';
+import { Loader2, CheckCircle, Mail, Phone, CreditCard, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -63,6 +63,17 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [plansLoaded, setPlansLoaded] = useState(false);
+  
+  // Estados para erros específicos
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  
+  // Estados para visualização de senha
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Estado para validar se as senhas coincidem
+  const [passwordsMatch, setPasswordsMatch] = useState(true);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -110,8 +121,51 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
   React.useEffect(() => {
     loadPlans();
   }, [loadPlans]);
+  
+  // Limpar erros específicos quando o usuário começa a digitar novamente
+  // e verificar se as senhas coincidem em tempo real
+  React.useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'email' && emailError) {
+        setEmailError(null);
+      }
+      if (name === 'phone' && phoneError) {
+        setPhoneError(null);
+      }
+      
+      // Verificar se as senhas coincidem quando qualquer uma delas mudar
+      if (name === 'password' || name === 'confirmPassword') {
+        const password = form.getValues('password');
+        const confirmPassword = form.getValues('confirmPassword');
+        
+        // Só validar se ambos os campos tiverem algum valor
+        if (password && confirmPassword) {
+          setPasswordsMatch(password === confirmPassword);
+        } else {
+          // Se algum campo estiver vazio, não mostrar erro
+          setPasswordsMatch(true);
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, emailError, phoneError]);
 
   const onSubmit = async (data: FormValues) => {
+    // Limpar erros anteriores
+    setEmailError(null);
+    setPhoneError(null);
+    
+    // Verificar se as senhas coincidem antes de enviar
+    if (!passwordsMatch) {
+      toast({
+        variant: "destructive",
+        title: "Erro de validação",
+        description: "As senhas não coincidem. Por favor, verifique e tente novamente.",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       console.log('Attempting registration with:', { 
@@ -149,11 +203,23 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
     } catch (error: unknown) {
       console.error('Registration failed:', error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta. Tente novamente.";
-      toast({
-        variant: "destructive",
-        title: "Erro no cadastro",
-        description: errorMessage,
-      });
+      
+      // Detectar erros específicos
+      if (errorMessage.toLowerCase().includes('e-mail já está em uso') || 
+          errorMessage.toLowerCase().includes('email já está em uso') ||
+          errorMessage.toLowerCase().includes('email already in use')) {
+        setEmailError('Este e-mail já está cadastrado');
+      } else if (errorMessage.toLowerCase().includes('telefone já está em uso') ||
+                errorMessage.toLowerCase().includes('phone already in use')) {
+        setPhoneError('Este telefone já está cadastrado');
+      } else {
+        // Para outros erros, mostra o toast
+        toast({
+          variant: "destructive",
+          title: "Erro no cadastro",
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +267,14 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
         <TabsContent value="email">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {!passwordsMatch && form.getValues('password') && form.getValues('confirmPassword') && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    As senhas não coincidem. Por favor, verifique e tente novamente.
+                  </AlertDescription>
+                </Alert>
+              )}
               <FormField
                 control={form.control}
                 name="name"
@@ -226,14 +300,29 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="seu@email.com" 
-                        {...field} 
-                        disabled={isLoading}
-                      />
+                      <div className="relative">
+                        <Input 
+                          type="email" 
+                          placeholder="seu@email.com" 
+                          {...field} 
+                          disabled={isLoading}
+                          className={emailError ? "border-red-500 pr-10" : ""}
+                        />
+                        {emailError && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
-                    <FormMessage />
+                    {emailError ? (
+                      <p className="text-sm font-medium text-red-500 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {emailError}
+                      </p>
+                    ) : (
+                      <FormMessage />
+                    )}
                   </FormItem>
                 )}
               />
@@ -248,14 +337,29 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                       Telefone/WhatsApp *
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="tel" 
-                        placeholder="(11) 99999-9999" 
-                        {...field} 
-                        disabled={isLoading}
-                      />
+                      <div className="relative">
+                        <Input 
+                          type="tel" 
+                          placeholder="(11) 99999-9999" 
+                          {...field} 
+                          disabled={isLoading}
+                          className={phoneError ? "border-red-500 pr-10" : ""}
+                        />
+                        {phoneError && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
-                    <FormMessage />
+                    {phoneError ? (
+                      <p className="text-sm font-medium text-red-500 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {phoneError}
+                      </p>
+                    ) : (
+                      <FormMessage />
+                    )}
                     <p className="text-xs text-gray-500">
                       Usado para comunicação e suporte via WhatsApp
                     </p>
@@ -271,14 +375,41 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                     <FormItem>
                       <FormLabel>Senha</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••" 
-                          {...field} 
-                          disabled={isLoading}
-                        />
+                        <div className="relative">
+                          <Input 
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••" 
+                            {...field} 
+                            disabled={isLoading}
+                            className={`pr-10 ${!passwordsMatch && form.getValues('confirmPassword') ? "border-red-500" : ""}`}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            tabIndex={-1}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="sr-only">
+                              {showPassword ? "Ocultar senha" : "Mostrar senha"}
+                            </span>
+                          </Button>
+                        </div>
                       </FormControl>
-                      <FormMessage />
+                      {!passwordsMatch && form.getValues('confirmPassword') ? (
+                        <p className="text-sm font-medium text-red-500 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          As senhas não coincidem
+                        </p>
+                      ) : (
+                        <FormMessage />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -290,14 +421,41 @@ const EducareRegisterForm: React.FC<EducareRegisterFormProps> = ({ redirectPath 
                     <FormItem>
                       <FormLabel>Confirmar senha</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••" 
-                          {...field} 
-                          disabled={isLoading}
-                        />
+                        <div className="relative">
+                          <Input 
+                            type={showConfirmPassword ? "text" : "password"} 
+                            placeholder="••••••••" 
+                            {...field} 
+                            disabled={isLoading}
+                            className={`pr-10 ${!passwordsMatch ? "border-red-500" : ""}`}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            tabIndex={-1}
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="sr-only">
+                              {showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+                            </span>
+                          </Button>
+                        </div>
                       </FormControl>
-                      <FormMessage />
+                      {!passwordsMatch ? (
+                        <p className="text-sm font-medium text-red-500 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          As senhas não coincidem
+                        </p>
+                      ) : (
+                        <FormMessage />
+                      )}
                     </FormItem>
                   )}
                 />

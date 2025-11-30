@@ -62,3 +62,20 @@ export const formatDateTime = (date: string | Date) => {
   const d = new Date(date);
   return d.toLocaleString('pt-BR');
 };
+
+// Calcula a idade em meses a partir da data de nascimento
+export const calculateAgeInMonths = (birthdate: string | Date): number => {
+  const birth = new Date(birthdate);
+  const today = new Date();
+  
+  const years = today.getFullYear() - birth.getFullYear();
+  const months = today.getMonth() - birth.getMonth();
+  
+  // Total de meses = (anos * 12) + meses
+  const totalMonths = (years * 12) + months;
+  
+  // Ajuste para quando o dia do mês atual é menor que o dia de nascimento
+  const adjustForDay = today.getDate() < birth.getDate() ? -1 : 0;
+  
+  return Math.max(0, totalMonths + adjustForDay);
+};

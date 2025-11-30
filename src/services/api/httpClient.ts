@@ -9,9 +9,15 @@ import { getStoredAuthToken, setStoredAuthToken, removeStoredAuthToken } from '@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Tipos para as respostas da API
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
   error?: string;
   message?: string;
 }
@@ -111,15 +117,55 @@ class HttpClient {
 
       // Processa resposta de sucesso
       console.log('🔍 DEBUG HttpClient.processResponse - Dados recebidos do backend:', data);
-      console.log('🔍 DEBUG HttpClient.processResponse - data.success:', data.success);
-      console.log('🔍 DEBUG HttpClient.processResponse - typeof data.success:', typeof data.success);
+      
+      // Caso especial para o endpoint de login por telefone
+      if (data.message && data.message.includes('Senha temporária enviada') && data.expiresAt) {
+        console.log('✅ DEBUG: Detectada resposta de senha temporária, tratando como sucesso');
+        return {
+          success: true,
+          data: data,
+          message: data.message
+        };
+      }
       
       // Se o backend já retorna success: true, mantém a estrutura original
       if (data.success !== undefined) {
         console.log('✅ DEBUG: Backend retorna success, mantendo estrutura original');
+        
+        // Caso especial para login - verificar se temos user e token diretamente na resposta
+        if (data.success === true && data.user && data.token) {
+          console.log('✅ DEBUG: Detectada resposta de login bem-sucedido');
+          console.log('✅ DEBUG: Retornando dados de login:', { 
+            hasUser: !!data.user, 
+            hasToken: !!data.token,
+            hasRefreshToken: !!data.refreshToken 
+          });
+          
+          // Usar unknown e depois fazer cast para o tipo esperado
+          const loginData = {
+            user: data.user,
+            token: data.token,
+            refreshToken: data.refreshToken || data.token
+          } as unknown as T;
+          
+          return {
+            success: true,
+            data: loginData,
+            message: 'Login bem-sucedido'
+          };
+        }
+        
+        // Preserva TODOS os campos do backend, incluindo meta
+        // Se data.data existe, usa ele, senão usa o próprio data (sem success, error, message)
+        const responseData = data.data !== undefined ? data.data : (() => {
+          const { success, error, message, meta, ...rest } = data;
+          return Object.keys(rest).length > 0 ? rest : undefined;
+        })();
+        
         return {
           success: data.success,
-          data: data.data,
+          data: responseData as T,
+          meta: data.meta, // ✅ PRESERVA O CAMPO META!
           error: data.error,
           message: data.message,
         };

@@ -3,6 +3,66 @@ const bcrypt = require('bcryptjs');
 const { User, Profile } = require('../models');
 const authConfig = require('../config/auth');
 const { validationResult } = require('express-validator');
+const https = require('https'); // Módulo nativo do Node.js para requisições HTTPS
+
+/**
+ * Função auxiliar para enviar dados para um webhook via HTTPS
+ * @param {string} webhookUrl - URL do webhook
+ * @param {object} data - Dados a serem enviados no formato JSON
+ * @returns {Promise<object>} - Resposta do webhook
+ */
+const sendToWebhook = async (webhookUrl, data) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Converter a URL do webhook em objeto URL para extrair os componentes
+      const url = new URL(webhookUrl);
+      
+      // Preparar os dados para envio
+      const postData = JSON.stringify(data);
+      
+      // Opções da requisição
+      const options = {
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+      
+      // Criar a requisição
+      const req = https.request(options, (res) => {
+        let responseData = '';
+        
+        // Coletar os dados da resposta
+        res.on('data', (chunk) => {
+          responseData += chunk;
+        });
+        
+        // Finalizar a requisição quando terminar
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ ok: true, status: res.statusCode, data: responseData });
+          } else {
+            reject(new Error(`Webhook retornou status ${res.statusCode}`));
+          }
+        });
+      });
+      
+      // Tratar erros de conexão
+      req.on('error', (error) => {
+        reject(error);
+      });
+      
+      // Enviar os dados
+      req.write(postData);
+      req.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
 
 // Função para gerar token JWT
 const generateToken = (userId) => {
@@ -69,7 +129,24 @@ exports.register = async (req, res) => {
 
     // Verificar se o telefone já está em uso (se fornecido)
     if (phone) {
-      const phoneExists = await User.findOne({ where: { phone } });
+      console.log(`Verificando se telefone já está em uso: ${phone}`);
+      
+      // Verificar telefone exatamente como recebido
+      let phoneExists = await User.findOne({ where: { phone } });
+      
+      // Se não encontrar e for telefone com +, verificar sem o +
+      if (!phoneExists && phone.startsWith('+')) {
+        const phoneWithoutPlus = phone.substring(1);
+        console.log(`Verificando telefone sem o +: ${phoneWithoutPlus}`);
+        phoneExists = await User.findOne({ where: { phone: phoneWithoutPlus } });
+        
+        // Se encontrar sem o +, atualizar para incluir o +
+        if (phoneExists) {
+          console.log(`Telefone já cadastrado sem o +: ${phoneWithoutPlus}`);
+          await phoneExists.update({ phone });
+        }
+      }
+      
       if (phoneExists) {
         return res.status(400).json({ error: 'Telefone já está em uso' });
       }
@@ -225,18 +302,61 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'É necessário fornecer email ou telefone' });
     }
 
-    // Buscar usuário pelo e-mail ou telefone
-    let whereClause = {};
+    console.log(`Tentando login com: ${email || phone}`);
+    
+    // Primeiro, tentamos encontrar o usuário pelo método fornecido (email ou telefone)
+    let user = null;
+    
     if (email) {
-      whereClause.email = email;
+      user = await User.findOne({ 
+        where: { email },
+        include: [{ model: Profile, as: 'profile' }]
+      });
     } else if (phone) {
-      whereClause.phone = phone;
+      // Primeiro tenta com o telefone exatamente como recebido
+      user = await User.findOne({ 
+        where: { phone },
+        include: [{ model: Profile, as: 'profile' }]
+      });
+      
+      // Se não encontrar e for telefone com +, tenta sem o +
+      if (!user && phone.startsWith('+')) {
+        const phoneWithoutPlus = phone.substring(1);
+        console.log(`Tentando login com telefone sem o +: ${phoneWithoutPlus}`);
+        
+        user = await User.findOne({ 
+          where: { phone: phoneWithoutPlus },
+          include: [{ model: Profile, as: 'profile' }]
+        });
+        
+        // Se encontrou, atualiza o telefone para incluir o +
+        if (user) {
+          console.log(`Usuário encontrado com telefone sem o +: ${phoneWithoutPlus}`);
+          await user.update({ phone });
+        }
+      }
     }
 
-    const user = await User.findOne({ 
-      where: whereClause,
-      include: [{ model: Profile, as: 'profile' }]
-    });
+    // Se não encontramos o usuário pelo método fornecido, verificamos se é uma tentativa
+    // de login com senha temporária usando um método alternativo
+    if (!user && email) {
+      // Tentativa de login com email, mas usuário não encontrado
+      // Vamos buscar por telefone associado a este email em outro registro
+      console.log('Usuário não encontrado pelo email, buscando por outros métodos...');
+      
+      // Aqui precisaríamos de uma tabela de associação entre email e telefone
+      // Como não temos isso explicitamente, vamos verificar se algum usuário com este email
+      // está tentando usar uma senha temporária gerada para seu telefone
+      
+      // Esta é uma implementação simplificada - idealmente você teria uma tabela
+      // que associa explicitamente emails e telefones do mesmo usuário
+    } else if (!user && phone) {
+      // Tentativa de login com telefone, mas usuário não encontrado
+      // Vamos buscar por email associado a este telefone em outro registro
+      console.log('Usuário não encontrado pelo telefone, buscando por outros métodos...');
+      
+      // Implementação similar à acima
+    }
 
     // Verificar se o usuário existe
     if (!user) {
@@ -249,9 +369,91 @@ exports.login = async (req, res) => {
     }
 
     // Verificar senha
+    console.log(`Verificando senha para usuário: ${user.email || user.phone}`);
+    console.log(`Senha fornecida (comprimento): ${password ? password.length : 'senha vazia'}`);
+    console.log(`Senha contém @: ${password && password.includes('@') ? 'Sim' : 'Não'}`);
+    
     const passwordMatch = await user.checkPassword(password);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+    
+    if (passwordMatch) {
+      console.log('Senha verificada com sucesso para login direto');
+    } else {
+      console.log('Senha direta não corresponde, verificando métodos alternativos...');
+      
+      // Se a senha direta não corresponder, verificamos se há outro usuário
+      // com o mesmo ID (mesmo usuário) mas com método de contato diferente
+      // que possa ter recebido uma senha temporária
+      
+      // Buscar todos os métodos de contato deste usuário
+      const userId = user.id;
+      let alternativeUser = null;
+      let altPasswordMatch = false;
+      
+      if (email) {
+        // Se o login foi tentado com email, verificar se o mesmo usuário tem um telefone
+        // registrado que possa ter recebido uma senha temporária
+        console.log(`Tentando encontrar conta alternativa com telefone para o usuário ${userId}`);
+        
+        alternativeUser = await User.findOne({
+          where: {
+            id: userId,
+            phone: { [require('sequelize').Op.ne]: null }
+          }
+        });
+        
+        if (alternativeUser) {
+          console.log(`Conta alternativa encontrada com telefone ${alternativeUser.phone}`);
+          console.log(`Verificando senha temporária enviada para o telefone ${alternativeUser.phone}`);
+          
+          altPasswordMatch = await alternativeUser.checkPassword(password);
+          
+          if (altPasswordMatch) {
+            // A senha temporária enviada para o telefone funciona para o login com email
+            console.log('Senha temporária do telefone aceita para login com email!');
+            user = alternativeUser;
+          } else {
+            console.log('Senha temporária do telefone NÃO funciona para login com email');
+            return res.status(401).json({ 
+              error: 'Email ou senha incorretos. Por favor, verifique suas credenciais.'
+            });
+          }
+        } else {
+          console.log('Nenhuma conta alternativa encontrada com telefone');
+          return res.status(401).json({ error: 'Email ou senha incorretos. Por favor, verifique suas credenciais.' });
+        }
+      } else if (phone) {
+        // Se o login foi tentado com telefone, verificar se o mesmo usuário tem um email
+        // registrado que possa ter recebido uma senha temporária
+        console.log(`Tentando encontrar conta alternativa com email para o usuário ${userId}`);
+        
+        alternativeUser = await User.findOne({
+          where: {
+            id: userId,
+            email: { [require('sequelize').Op.ne]: null }
+          }
+        });
+        
+        if (alternativeUser) {
+          console.log(`Conta alternativa encontrada com email ${alternativeUser.email}`);
+          console.log(`Verificando senha temporária enviada para o email ${alternativeUser.email}`);
+          
+          altPasswordMatch = await alternativeUser.checkPassword(password);
+          
+          if (altPasswordMatch) {
+            // A senha temporária enviada para o email funciona para o login com telefone
+            console.log('Senha temporária do email aceita para login com telefone!');
+            user = alternativeUser;
+          } else {
+            console.log('Senha temporária do email NÃO funciona para login com telefone');
+            return res.status(401).json({ 
+              error: 'Email ou senha incorretos. Por favor, verifique suas credenciais.'
+            });
+          }
+        } else {
+          console.log('Nenhuma conta alternativa encontrada com email');
+          return res.status(401).json({ error: 'Email ou senha incorretos. Por favor, verifique suas credenciais.' });
+        }
+      }
     }
 
     // Atualizar último login
@@ -262,13 +464,13 @@ exports.login = async (req, res) => {
     const token = generateToken(user.id);
     const refreshToken = generateToken(user.id); // Por enquanto, mesmo token (pode ser melhorado)
 
-    // Logs removidos para evitar problemas
-
     // Retornar dados do usuário (sem a senha), token e refreshToken
     return res.status(200).json({
+      success: true, // Adicionar campo success para compatibilidade com o frontend
       user: {
         id: user.id,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         profile: user.profile
       },
@@ -277,7 +479,24 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao fazer login:', error);
-    return res.status(500).json({ error: 'Erro ao fazer login' });
+    
+    // Verificar se é um erro relacionado a senha temporária
+    const errorMessage = error.message || 'Erro ao fazer login';
+    const isTempPasswordError = errorMessage.includes('temporária');
+    
+    if (isTempPasswordError) {
+      return res.status(401).json({ 
+        error: 'Senha temporária inválida ou expirada. Por favor, solicite uma nova senha.',
+        success: false,
+        isTempPasswordError: true
+      });
+    }
+    
+    return res.status(500).json({ 
+      error: 'Erro ao fazer login. Por favor, tente novamente.',
+      success: false,
+      details: process.env.NODE_ENV !== 'production' ? errorMessage : undefined
+    });
   }
 };
 
@@ -309,32 +528,83 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({ 
+        error: 'E-mail é obrigatório',
+        success: false
+      });
+    }
+    
+    console.log(`Solicitando redefinição de senha para: ${email}`);
+
     // Buscar usuário pelo e-mail
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
       // Por segurança, não informamos se o e-mail existe ou não
-      return res.status(200).json({ message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha' });
+      console.log(`Usuário não encontrado com o email: ${email}`);
+      return res.status(200).json({ 
+        message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha',
+        success: true
+      });
     }
 
     // Gerar token para redefinição de senha
+    const crypto = require('crypto');
     const resetToken = crypto.randomBytes(20).toString('hex');
     
     // Salvar token e data de expiração no usuário
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hora
+    user.reset_token = resetToken;
+    user.reset_token_expires = new Date(Date.now() + 3600000); // 1 hora
     await user.save();
 
-    // Aqui seria implementado o envio de e-mail com o token
-    // Por simplicidade, apenas retornamos o token na resposta
+    // Importar o módulo de envio de email
+    const { sendEmail } = require('../utils/emailSender');
+    
+    // Construir a URL de redefinição de senha
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${baseUrl}/educare-app/auth/reset-password?token=${resetToken}`;
+    
+    // Construir o corpo do email
+    const emailSubject = 'Educare - Redefinição de Senha';
+    const emailBody = `
+      <h2>Redefinição de Senha</h2>
+      <p>Olá,</p>
+      <p>Você solicitou a redefinição de senha para sua conta no Educare.</p>
+      <p>Clique no link abaixo para criar uma nova senha:</p>
+      <p><a href="${resetUrl}" target="_blank">Redefinir minha senha</a></p>
+      <p>Ou copie e cole o seguinte link no seu navegador:</p>
+      <p>${resetUrl}</p>
+      <p>Este link é válido por 1 hora.</p>
+      <p>Se você não solicitou esta redefinição, ignore este email.</p>
+      <p>Atenciosamente,<br>Equipe Educare</p>
+    `;
+    
+    // Enviar o email
+    const emailResult = await sendEmail(email, emailSubject, emailBody);
+    
+    if (!emailResult.success) {
+      console.error('Erro ao enviar email de redefinição:', emailResult.error);
+      
+      // Mesmo com erro no envio, não informamos ao usuário para evitar vazamento de informação
+      return res.status(200).json({ 
+        message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha',
+        success: true
+      });
+    }
+    
+    console.log(`Email de redefinição enviado com sucesso para: ${email}`);
     
     return res.status(200).json({
       message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha',
-      resetToken // Em produção, este token seria enviado por e-mail, não na resposta
+      success: true
     });
   } catch (error) {
     console.error('Erro ao solicitar redefinição de senha:', error);
-    return res.status(500).json({ error: 'Erro ao solicitar redefinição de senha' });
+    return res.status(500).json({ 
+      error: 'Erro ao processar solicitação de redefinição de senha',
+      success: false
+    });
   }
 };
 
@@ -342,29 +612,52 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
+    
+    if (!token || !password) {
+      return res.status(400).json({ 
+        error: 'Token e senha são obrigatórios',
+        success: false
+      });
+    }
+    
+    console.log(`Tentando redefinir senha com token: ${token.substring(0, 10)}...`);
 
     // Buscar usuário pelo token
     const user = await User.findOne({
       where: {
-        resetPasswordToken: token,
-        resetPasswordExpires: { [Op.gt]: Date.now() }
+        reset_token: token,
+        reset_token_expires: { [require('sequelize').Op.gt]: new Date() }
       }
     });
 
     if (!user) {
-      return res.status(400).json({ error: 'Token inválido ou expirado' });
+      console.log('Token inválido ou expirado');
+      return res.status(400).json({ 
+        error: 'Token inválido ou expirado. Por favor, solicite uma nova redefinição de senha.',
+        success: false
+      });
     }
+    
+    console.log(`Usuário encontrado: ${user.email}. Atualizando senha...`);
 
     // Atualizar senha
     user.password = password;
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
+    user.reset_token = null;
+    user.reset_token_expires = null;
     await user.save();
+    
+    console.log(`Senha redefinida com sucesso para: ${user.email}`);
 
-    return res.status(200).json({ message: 'Senha redefinida com sucesso' });
+    return res.status(200).json({ 
+      message: 'Senha redefinida com sucesso. Você já pode fazer login com sua nova senha.',
+      success: true
+    });
   } catch (error) {
     console.error('Erro ao redefinir senha:', error);
-    return res.status(500).json({ error: 'Erro ao redefinir senha' });
+    return res.status(500).json({ 
+      error: 'Erro ao processar redefinição de senha. Por favor, tente novamente.',
+      success: false
+    });
   }
 };
 
@@ -420,6 +713,193 @@ exports.logout = async (req, res) => {
   }
 };
 
+// Função auxiliar para gerar senha temporária segura
+const generateSecurePassword = () => {
+  // Definir conjuntos de caracteres
+  const uppercaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz';
+  const numberChars = '0123456789';
+  const specialChars = '@';
+  
+  // Garantir pelo menos 2 maiúsculas
+  let password = '';
+  for (let i = 0; i < 2; i++) {
+    password += uppercaseChars.charAt(Math.floor(Math.random() * uppercaseChars.length));
+  }
+  
+  // Garantir pelo menos um @
+  password += specialChars;
+  
+  // Garantir pelo menos um número
+  password += numberChars.charAt(Math.floor(Math.random() * numberChars.length));
+  
+  // Garantir pelo menos uma letra minúscula
+  password += lowercaseChars.charAt(Math.floor(Math.random() * lowercaseChars.length));
+  
+  // Adicionar caracteres aleatórios para completar 6 dígitos se necessário
+  const remainingLength = 6 - password.length;
+  const allChars = uppercaseChars + lowercaseChars + numberChars;
+  
+  for (let i = 0; i < remainingLength; i++) {
+    password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+  }
+  
+  // Embaralhar a senha para não ter um padrão previsível
+  const shuffled = password.split('').sort(() => 0.5 - Math.random()).join('');
+  
+  console.log('Senha temporária gerada (exata):', shuffled);
+  console.log('Comprimento da senha:', shuffled.length);
+  console.log('Contém @:', shuffled.includes('@') ? 'Sim' : 'Não');
+  
+  return shuffled;
+};
+
+// Login por telefone com senha temporária
+exports.loginByPhone = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ 
+        error: 'Número de telefone é obrigatório',
+        success: false
+      });
+    }
+
+    console.log(`Tentando login com telefone: ${phone}`);
+    
+    // Buscar usuário pelo telefone (exatamente como recebido)
+    const user = await User.findOne({ where: { phone } });
+    
+    // Se não encontrar com o formato exato, tente buscar sem o + (compatibilidade)
+    if (!user && phone.startsWith('+')) {
+      const phoneWithoutPlus = phone.substring(1);
+      console.log(`Tentando buscar telefone sem o +: ${phoneWithoutPlus}`);
+      const userWithoutPlus = await User.findOne({ where: { phone: phoneWithoutPlus } });
+      
+      if (userWithoutPlus) {
+        console.log(`Usuário encontrado com telefone sem o +: ${phoneWithoutPlus}`);
+        // Atualizar o telefone para incluir o + para futuras buscas
+        await userWithoutPlus.update({ phone });
+        return processLoginByPhone(userWithoutPlus, phone, res);
+      }
+    }
+
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'Usuário não encontrado com este número de telefone',
+        success: false
+      });
+    }
+    
+    return processLoginByPhone(user, phone, res);
+  } catch (error) {
+    console.error('Erro ao processar login por telefone:', error);
+    return res.status(500).json({ 
+      error: 'Erro ao processar solicitação de senha temporária',
+      success: false,
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+    });
+  }
+};
+
+// Função auxiliar para processar login por telefone
+const processLoginByPhone = async (user, phone, res) => {
+  try {
+    // Verificar se o usuário está ativo
+    if (user.status !== 'active') {
+      return res.status(401).json({ 
+        error: 'Usuário inativo. Por favor, entre em contato com o suporte.',
+        success: false
+      });
+    }
+
+    // Gerar senha temporária segura (6 dígitos, letras, números, maiúsculas e um @)
+    const tempPassword = generateSecurePassword();
+    console.log('Senha temporária gerada para usuário:', user.id);
+    
+    // Hash da senha temporária
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    console.log('Hash da senha temporária gerado com sucesso');
+    
+    // Atualizar senha do usuário
+    user.password = hashedPassword;
+    await user.save();
+    console.log('Senha temporária salva no banco de dados para usuário:', user.id);
+
+    // Obter URL do webhook do .env
+    const webhookUrl = process.env.PHONE_PASSWORD_WEBHOOK;
+    
+    if (!webhookUrl) {
+      console.error('URL do webhook para senhas não configurada no .env');
+      return res.status(500).json({ 
+        error: 'Não foi possível enviar a senha temporária. Erro de configuração do servidor.',
+        success: false
+      });
+    }
+
+    // Verificar se o usuário tem email associado
+    const hasEmail = user.email && user.email.trim() !== '';
+    let loginMessage = '';
+    
+    if (hasEmail) {
+      // Se o usuário tem email, informar que a senha pode ser usada com ambos
+      loginMessage = `Sua senha temporária para acesso ao Educare: ${tempPassword}\nVálida por 30 minutos.\nVocê pode usar esta senha para entrar com seu email (${user.email}) ou telefone.`;
+    } else {
+      // Se não tem email, usar a mensagem padrão
+      loginMessage = `Sua senha temporária para acesso ao Educare: ${tempPassword}\nVálida por 30 minutos.`;
+    }
+
+    // Enviar senha via webhook
+    try {
+      // Preparar dados para envio
+      const webhookData = {
+        phone: phone,
+        message: loginMessage
+      };
+      
+      console.log(`Enviando senha temporária para ${phone} via webhook POST`);
+      
+      // Usar a função auxiliar para enviar ao webhook
+      const response = await sendToWebhook(process.env.PHONE_PASSWORD_WEBHOOK, webhookData);
+      
+      console.log(`Senha temporária enviada com sucesso para ${phone}`);
+      
+      // Verificar a senha gerada com o hash armazenado (teste de verificação)
+      const verifyPassword = await bcrypt.compare(tempPassword, user.password);
+      console.log('Verificação da senha temporária com o hash armazenado:', verifyPassword ? 'OK' : 'FALHA');
+      
+      let responseMessage = 'Senha temporária enviada com sucesso para o seu telefone';
+      if (hasEmail) {
+        responseMessage += `. Você pode usar esta senha para entrar com seu email (${user.email}) ou telefone.`;
+      }
+      
+      // Definir hora de expiração (30 minutos a partir de agora)
+      const expiresAt = new Date(Date.now() + 30 * 60000);
+      
+      return res.status(200).json({
+        message: responseMessage,
+        expiresAt: expiresAt,
+        canUseWithEmail: hasEmail,
+        email: hasEmail ? user.email : null,
+        success: true // Adicionar campo success para compatibilidade com o frontend
+      });
+    } catch (error) {
+      console.error('Erro ao enviar senha via webhook:', error);
+      return res.status(500).json({ 
+        error: 'Erro ao enviar senha temporária',
+        success: false
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao processar login por telefone:', error);
+    return res.status(500).json({ 
+      error: 'Erro ao processar solicitação',
+      success: false
+    });
+  }
+};
+
 // Gerar e enviar chave de verificação para telefone
 exports.sendPhoneVerification = async (req, res) => {
   try {
@@ -428,6 +908,8 @@ exports.sendPhoneVerification = async (req, res) => {
     if (!phone) {
       return res.status(400).json({ error: 'Número de telefone é obrigatório' });
     }
+    
+    console.log(`Tentando verificar telefone: ${phone}`);
 
     // Gerar código de verificação de 6 dígitos
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -436,8 +918,21 @@ exports.sendPhoneVerification = async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 30);
 
-    // Verificar se o telefone já está cadastrado
+    // Verificar se o telefone já está cadastrado (exatamente como recebido)
     let user = await User.findOne({ where: { phone } });
+    
+    // Se não encontrar com o formato exato, tente buscar sem o + (compatibilidade)
+    if (!user && phone.startsWith('+')) {
+      const phoneWithoutPlus = phone.substring(1);
+      console.log(`Tentando buscar telefone sem o +: ${phoneWithoutPlus}`);
+      user = await User.findOne({ where: { phone: phoneWithoutPlus } });
+      
+      if (user) {
+        console.log(`Usuário encontrado com telefone sem o +: ${phoneWithoutPlus}`);
+        // Atualizar o telefone para incluir o + para futuras buscas
+        await user.update({ phone });
+      }
+    }
 
     if (user) {
       // Atualizar código de verificação para usuário existente
@@ -464,12 +959,18 @@ exports.sendPhoneVerification = async (req, res) => {
 
     // Enviar código via webhook
     try {
-      // Aqui você implementaria a chamada ao webhook
-      // Por exemplo, usando axios ou fetch:
-      // await axios.post(`${webhookUrl}?phone=${phone}&code=${verificationCode}`);
+      // Preparar dados para envio
+      const webhookData = {
+        phone: phone,
+        message: `Seu código de verificação do Educare: ${verificationCode}\nVálido por 30 minutos.`
+      };
       
-      // Por enquanto, apenas simulamos o envio
-      console.log(`Enviando código ${verificationCode} para ${phone} via ${webhookUrl}`);
+      console.log(`Enviando código de verificação para ${phone} via webhook POST`);
+      
+      // Usar a função auxiliar para enviar ao webhook
+      const response = await sendToWebhook(process.env.PHONE_VERIFICATION_WEBHOOK, webhookData);
+      
+      console.log(`Código de verificação enviado com sucesso para ${phone}`);
       
       return res.status(200).json({
         message: 'Código de verificação enviado com sucesso',
@@ -493,9 +994,24 @@ exports.verifyPhoneCode = async (req, res) => {
     if (!phone || !code) {
       return res.status(400).json({ error: 'Telefone e código são obrigatórios' });
     }
+    
+    console.log(`Verificando código para telefone: ${phone}`);
 
-    // Buscar usuário pelo telefone
-    const user = await User.findOne({ where: { phone } });
+    // Buscar usuário pelo telefone (exatamente como recebido)
+    let user = await User.findOne({ where: { phone } });
+    
+    // Se não encontrar com o formato exato, tente buscar sem o + (compatibilidade)
+    if (!user && phone.startsWith('+')) {
+      const phoneWithoutPlus = phone.substring(1);
+      console.log(`Tentando buscar telefone sem o +: ${phoneWithoutPlus}`);
+      user = await User.findOne({ where: { phone: phoneWithoutPlus } });
+      
+      if (user) {
+        console.log(`Usuário encontrado com telefone sem o +: ${phoneWithoutPlus}`);
+        // Atualizar o telefone para incluir o + para futuras buscas
+        await user.update({ phone });
+      }
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado' });

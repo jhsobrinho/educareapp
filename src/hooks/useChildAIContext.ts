@@ -15,19 +15,34 @@ export const useChildAIContext = (childId?: string) => {
   useEffect(() => {
     if (!childId) return;
 
-    const fetchChildContext = async () => {
+    const fetchChildContext = async (retryCount = 0) => {
       setIsLoading(true);
-      setError(null);
+      if (retryCount === 0) {
+        setError(null); // Só limpa erro na primeira tentativa
+      }
 
       try {
-        // Fetch child data
-        const { data: childData, error: childError } = await supabase
-          .from('educare_children')
-          .select('*, first_name, last_name, birthdate, age')
-          .eq('id', childId)
-          .single();
-
-        if (childError) throw new Error(childError.message);
+        // Fetch child data from backend
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/children/${childId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          // Se for erro 401 e ainda não tentou muitas vezes, tenta novamente
+          if (response.status === 401 && retryCount < 3) {
+            console.log(`🔄 Tentativa ${retryCount + 1}/3 - Erro 401, tentando novamente em 1s...`);
+            setTimeout(() => fetchChildContext(retryCount + 1), 1000);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const childData = result.data;
+        
         if (!childData) throw new Error('Child not found');
 
         // Calculate child age if not available
@@ -63,15 +78,20 @@ export const useChildAIContext = (childId?: string) => {
         );
         
         setChildContext(context);
+        setError(null); // Limpa qualquer erro anterior em caso de sucesso
+        console.log('✅ Child context carregado com sucesso!');
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load child context';
         setError(errorMsg);
         
-        toast({
-          title: 'Erro ao carregar contexto',
-          description: errorMsg,
-          variant: 'destructive'
-        });
+        // Só mostra toast se não for um retry
+        if (retryCount === 0) {
+          toast({
+            title: 'Erro ao carregar contexto',
+            description: errorMsg,
+            variant: 'destructive'
+          });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -98,14 +118,21 @@ export const useChildAIContext = (childId?: string) => {
         // For now just simulate a delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Re-fetch child data
-        const { data: childData, error: childError } = await supabase
-          .from('educare_children')
-          .select('*, first_name, last_name, birthdate, age')
-          .eq('id', childId)
-          .single();
-
-        if (childError) throw new Error(childError.message);
+        // Re-fetch child data from backend
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/children/${childId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const childData = result.data;
+        
         if (!childData) throw new Error('Child not found');
 
         // Calculate child age if not available

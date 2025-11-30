@@ -82,6 +82,8 @@ export function EnhancedTeamChat({ childId, childName }: EnhancedTeamChatProps) 
     sendMessage,
     inviteParticipant,
     removeParticipant,
+    pendingInvite,
+    acceptInvite,
   } = useRealTeamChat(childId);
 
   const [newMessage, setNewMessage] = useState('');
@@ -302,33 +304,80 @@ Mantenha o resumo conciso, empático e focado em ações práticas.`;
     );
   }
 
-if (!group) {
-  return (
-    <Card className="h-96">
-      <CardContent className="flex flex-col items-center justify-center h-full">
-        <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold text-center mb-2">Grupo de Comunicação</h3>
-        <p className="text-muted-foreground text-center mb-6 max-w-md">
-          {/* TODO: Verificar se usuário tem convite pendente */}
-          Crie um grupo para facilitar a comunicação entre a família e os profissionais que acompanham o desenvolvimento de {childName}.
-        </p>
-        
-        {/* TODO: Implementar lógica de convite pendente */}
-        <div className="space-y-3">
-          <Button 
-            onClick={handleCreateGroup} 
-            disabled={isCreatingGroup}
-            className="bg-orange-500 hover:bg-orange-600 text-white w-full"
-          >
-            <Users className="h-4 w-4 mr-2" />
-            {isCreatingGroup ? 'Criando...' : 'Criar Grupo'}
-          </Button>
-          
-          {/* Placeholder para botão de aceitar convite */}
-          <div className="text-xs text-muted-foreground text-center">
-            🚧 Em breve: Opção para aceitar convites de equipe
+  // Nova lógica: Se não há grupo, apenas admins/profissionais podem criar
+  // Pais podem acessar diretamente grupos existentes (sem convites)
+  if (!group && !isLoading) {
+    // Se é profissional/admin, pode criar grupo
+    if (user?.role === 'professional' || user?.role === 'admin' || user?.role === 'owner') {
+      return (
+        <Card className="h-96">
+          <CardContent className="flex flex-col items-center justify-center h-full">
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageCircle className="h-8 w-8 text-orange-600" />
+            </div>
+            
+            <div className="space-y-2 text-center">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Criar Grupo de Comunicação
+              </h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Crie um grupo para facilitar a comunicação entre a família e os profissionais que acompanham o desenvolvimento de {childName}.
+              </p>
+            </div>
+            
+            <Button 
+              onClick={handleCreateGroup}
+              disabled={isCreatingGroup}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 mt-6"
+            >
+              {isCreatingGroup ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Criando Grupo...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4 mr-2" />
+                  Criar Grupo
+                </>
+              )}
+            </Button>
+            
+            <p className="text-xs text-gray-500 mt-4">
+              💡 Após criar o grupo, os pais poderão acessar automaticamente para conversar com a equipe.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    // Se é pai/responsável, mostrar que ainda não há grupo criado
+    return (
+      <Card className="h-96">
+        <CardContent className="flex flex-col items-center justify-center h-full">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="h-8 w-8 text-blue-600" />
           </div>
-        </div>
+          
+          <div className="space-y-2 text-center">
+            <h3 className="text-xl font-semibold text-gray-900">
+              Grupo Ainda Não Criado
+            </h3>
+            <p className="text-gray-600 max-w-md mx-auto">
+              O grupo de comunicação sobre {childName} ainda não foi criado por um profissional. Quando estiver disponível, você poderá acessar automaticamente.
+            </p>
+          </div>
+          
+          <div className="bg-blue-50 p-4 rounded-lg max-w-md mx-auto mt-6">
+            <p className="text-sm text-blue-800">
+              <strong>Como funciona:</strong>
+            </p>
+            <ul className="text-sm text-blue-600 mt-2 space-y-1 text-left">
+              <li>• Um profissional criará o grupo de comunicação</li>
+              <li>• Você poderá acessar automaticamente (sem convites)</li>
+              <li>• Poderá conversar diretamente com a equipe</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     );
@@ -359,7 +408,9 @@ if (!group) {
                 <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 border-2 border-white rounded-full"></div>
               </div>
               <div>
-                <h3 className="font-semibold text-lg">{group.group_name}</h3>
+                <h3 className="font-semibold text-lg">
+                  {childName ? `Chat - ${childName}` : group.group_name}
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   {participants.length} participante{participants.length !== 1 ? 's' : ''}
                 </p>
@@ -557,60 +608,116 @@ if (!group) {
               </div>
             )}
 
-            <ScrollArea className="flex-1 pr-4">
+            <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
-                {filteredMessages.map((message) => (
-                  <div key={message.id} className="group">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarFallback className={getRoleColor(message.sender_role)}>
-                          {message.sender_role === 'ai_assistant' ? 'AI' : getAvatarInitials(message.sender_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">{message.sender_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(message.sent_at), 'HH:mm')}
-                          </span>
-                          {message.message_type === 'ai_summary' && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Bot className="h-3 w-3 mr-1" />
-                              Resumo AI
-                            </Badge>
-                          )}
-                        </div>
+                {filteredMessages.map((message) => {
+                  const isOwnMessage = message.sender_id === user?.id;
+                  
+                  return (
+                    <div key={message.id} className="group">
+                      <div className={`flex items-start gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                        <Avatar className="h-8 w-8 mt-1">
+                          <AvatarFallback className={getRoleColor(message.sender_role)}>
+                            {message.sender_role === 'ai_assistant' ? 'AI' : getAvatarInitials(message.sender_name)}
+                          </AvatarFallback>
+                        </Avatar>
                         
-                        <div className={cn(
-                          "p-3 rounded-lg text-sm whitespace-pre-wrap",
-                          message.message_type === 'ai_summary' 
-                            ? 'bg-purple-50 border border-purple-200' 
-                            : 'bg-muted'
-                        )}>
-                          {message.message_content}
-                        </div>
+                        <div className={`flex-1 min-w-0 max-w-[70%] ${isOwnMessage ? 'items-end' : ''}`}>
+                          <div className={`flex items-center gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                            <span className="text-sm font-medium">
+                              {isOwnMessage ? 'Você' : message.sender_name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(message.sent_at), 'HH:mm')}
+                            </span>
+                            {message.message_type === 'ai_summary' && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Bot className="h-3 w-3 mr-1" />
+                                Resumo AI
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className={cn(
+                            "rounded-lg text-sm whitespace-pre-wrap shadow-sm",
+                            message.message_type === 'ai_summary' 
+                              ? 'bg-purple-50 border border-purple-200' 
+                              : isOwnMessage
+                                ? 'bg-orange-100 text-orange-800 border border-orange-200 ml-auto'
+                                : 'bg-gray-50 text-gray-700 border border-gray-200'
+                          )}>
+                            {/* Referência da Mensagem Original (detectada por @menção) */}
+                            {message.message_content.includes('@') && message.message_content.includes(':') && (
+                              <div className={`p-2 mb-2 border-l-2 ${
+                                isOwnMessage 
+                                  ? 'bg-orange-50 border-orange-300 text-orange-700' 
+                                  : 'bg-gray-100 border-gray-300 text-gray-600'
+                              } text-xs`}>
+                                <div className="font-medium mb-1">
+                                  {message.message_content.split(':')[0].replace('@', '')}
+                                </div>
+                                <div className="opacity-75 line-clamp-2">
+                                  {/* Exibir conteúdo da mensagem original baseado na referência armazenada */}
+                                  {(() => {
+                                    // Extrair o nome da pessoa sendo respondida
+                                    const replyToName = message.message_content.split(':')[0].replace('@', '').trim();
+                                    
+                                    // Buscar mensagens anteriores do remetente específico
+                                    const candidateMessages = filteredMessages
+                                      .filter(m => {
+                                        // Comparar nomes de forma mais flexível
+                                        const senderFirstName = m.sender_name.split(' ')[0].toLowerCase();
+                                        const replyFirstName = replyToName.split(' ')[0].toLowerCase();
+                                        return senderFirstName === replyFirstName && 
+                                               new Date(m.sent_at) < new Date(message.sent_at) &&
+                                               m.id !== message.id;
+                                      })
+                                      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+                                    
+                                    // Pegar a mensagem mais recente do remetente
+                                    const originalMessage = candidateMessages[0];
+                                    
+                                    if (originalMessage) {
+                                      return originalMessage.message_content.length > 100 
+                                        ? originalMessage.message_content.substring(0, 100) + '...' 
+                                        : originalMessage.message_content;
+                                    }
+                                    
+                                    return 'Mensagem original não encontrada';
+                                  })()
+                                  }
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="p-3">
+                              {message.message_content}
+                            </div>
+                          </div>
 
-                        {/* Ações da Mensagem */}
-                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setReplyingTo(message)}
-                          >
-                            Responder
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Star className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          {/* Ações da Mensagem */}
+                          <div className={`flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                            isOwnMessage ? 'flex-row-reverse' : ''
+                          }`}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => setReplyingTo(message)}
+                            >
+                              Responder
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              <Star className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
               
@@ -626,6 +733,35 @@ if (!group) {
             </ScrollArea>
             
             <Separator className="my-3" />
+            
+            {/* Referência da Mensagem sendo Respondida */}
+            {replyingTo && (
+              <div className="mx-4 p-3 bg-orange-50 border-l-4 border-orange-400 rounded-r-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-orange-600">
+                      Respondendo a {replyingTo.sender_name}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {replyingTo.sender_role === 'parent' ? 'Responsável' : 
+                       replyingTo.sender_role === 'professional' ? 'Profissional' : 
+                       replyingTo.sender_role === 'ai_assistant' ? 'IA' : 'Usuário'}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReplyingTo(null)}
+                    className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  >
+                    ×
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600 truncate">
+                  {replyingTo.message_content}
+                </p>
+              </div>
+            )}
             
             {/* Input de Mensagem */}
             <div className="space-y-3">

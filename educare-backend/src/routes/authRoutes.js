@@ -369,6 +369,43 @@ router.post(
 
 /**
  * @swagger
+ * /api/auth/login-by-phone:
+ *   post:
+ *     summary: Inicia o processo de login por telefone enviando uma senha temporária
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 description: Número de telefone/WhatsApp
+ *     responses:
+ *       200:
+ *         description: Senha temporária enviada com sucesso
+ *       400:
+ *         description: Número de telefone inválido ou não fornecido
+ *       404:
+ *         description: Usuário não encontrado com este telefone
+ *       500:
+ *         description: Erro ao enviar senha temporária
+ */
+// Rota para login por telefone com senha temporária
+router.post(
+  '/login-by-phone',
+  [
+    body('phone').notEmpty().withMessage('Número de telefone é obrigatório')
+  ],
+  authController.loginByPhone
+);
+
+/**
+ * @swagger
  * /api/auth/refresh-token:
  *   post:
  *     summary: Renova o token JWT usando refresh token

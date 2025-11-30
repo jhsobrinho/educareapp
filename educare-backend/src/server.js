@@ -22,6 +22,16 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const adminChildrenRoutes = require('./routes/adminChildrenRoutes');
+const journeyBotRoutes = require('./routes/journeyBotRoutes');
+// Novas rotas do TitiNauta
+const titiNautaRoutes = require('./routes/titiNautaRoutes');
+const adminJourneyQuestionsRoutes = require('./routes/adminJourneyQuestionsRoutes');
+const journeyQuestionsRoutes = require('./routes/journeyQuestionsRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const userActivitiesRoutes = require('./routes/userActivitiesRoutes');
+const journeyV2Routes = require('./routes/journeyV2Routes');
+const externalApiRoutes = require('./routes/externalApiRoutes');
+const mediaResourceRoutes = require('./routes/mediaResourceRoutes');
 
 // Inicialização do app Express
 const app = express();
@@ -32,6 +42,9 @@ app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Servir arquivos estáticos da pasta uploads
+app.use('/uploads', express.static(process.env.UPLOAD_PATH || './uploads'));
 
 // Middleware de debug para capturar requisições de registro
 app.use('/api/auth/register', (req, res, next) => {
@@ -60,7 +73,19 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/chat-invites', require('./routes/chatInviteRoutes'));
+app.use('/api/team-invites', require('./routes/teamInviteRoutes'));
 app.use('/api/admin/children', adminChildrenRoutes);
+app.use('/api/journey-bot', journeyBotRoutes);
+app.use('/api/admin/journey-questions', adminJourneyQuestionsRoutes);
+app.use('/api/journey-questions', journeyQuestionsRoutes); // Rota pública para usuários
+app.use('/api/activities', activityRoutes);
+app.use('/api/admin/user-activities', userActivitiesRoutes);
+app.use('/api/journey-v2', journeyV2Routes);
+app.use('/api/external', externalApiRoutes);
+// Novas rotas do TitiNauta
+app.use('/api/journey', titiNautaRoutes); // Interface moderna do TitiNauta
+app.use('/api/media-resources', mediaResourceRoutes); // Gestão de recursos audiovisuais
 
 // Rota padrão
 app.get('/', (req, res) => {

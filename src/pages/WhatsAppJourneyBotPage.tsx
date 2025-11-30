@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 const WhatsAppJourneyBotPage: React.FC = () => {
   const { childId } = useParams<{ childId: string }>();
   const navigate = useNavigate();
-  const { childContext, isLoading: childLoading } = useChildAIContext(childId);
+  const { childContext, isLoading: childLoading, error } = useChildAIContext(childId);
   const [hasStarted, setHasStarted] = useState(false);
 
   const {
@@ -69,7 +69,25 @@ const WhatsAppJourneyBotPage: React.FC = () => {
     );
   }
 
-  if (!childContext || !ageRangeData || !personalizationContext) {
+  // Aguardar carregamento inicial antes de mostrar erro
+  if (childLoading || !isDataLoaded) {
+    return (
+      <div className="container py-6 flex items-center justify-center min-h-[600px]">
+        <Card className="p-8 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Preparando a conversa com o TitiNauta...
+          </h2>
+          <p className="text-gray-600">
+            Carregando dados da criança e inicializando o sistema.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Só mostrar erro se realmente houve falha após tentativa de carregamento
+  if (error && !isDataLoaded) {
     return (
       <div className="container py-6 flex items-center justify-center min-h-[600px]">
         <Card className="p-8 text-center">

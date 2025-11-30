@@ -1,18 +1,30 @@
 
 import React from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { EnhancedAppSidebar } from '@/components/educare-app/layout/EnhancedAppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
 import { Separator } from '@/components/ui/separator';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { CustomBreadcrumb } from '@/components/educare-app/layout/CustomBreadcrumb';
 import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
+import { Button } from '@/components/ui/button';
+import { LogOut, User, Key } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const EducareAppLayout: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, handleLogout, logout } = useAuth();
   const breadcrumbs = useBreadcrumbs();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // 🚀 DEBUG: Log de entrada no layout
   console.log('🚀 EDUCAREAPPLAYOUT RENDERIZADO!', {
@@ -46,6 +58,9 @@ const EducareAppLayout: React.FC = () => {
     console.log('👨‍⚕️ EDUCAREAPPLAYOUT: Usuário é professional');
     const allowedPaths = [
       '/educare-app/professional/dashboard',
+      '/educare-app/titinauta-media-demo',
+      '/educare-app/titinauta-media/',
+      '/educare-app/titinauta-journey',
       '/educare-app/settings'
     ];
     
@@ -70,6 +85,11 @@ const EducareAppLayout: React.FC = () => {
       '/educare-app/children',
       '/educare-app/child/',
       '/educare-app/journey-bot',
+      '/educare-app/journey-v2',
+      '/educare-app/titinauta',
+      '/educare-app/titinauta-media-demo',
+      '/educare-app/titinauta-media/',
+      '/educare-app/titinauta-journey',
       '/educare-app/activities',
       '/educare-app/settings'
     ];
@@ -96,27 +116,43 @@ const EducareAppLayout: React.FC = () => {
       <div className="min-h-screen flex w-full">
         <EnhancedAppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 px-4 border-b">
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                {breadcrumbs.map((breadcrumb, index) => (
-                  <React.Fragment key={breadcrumb.label}>
-                    {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
-                    <BreadcrumbItem className={index === 0 ? "hidden md:block" : ""}>
-                      {breadcrumb.href && index < breadcrumbs.length - 1 ? (
-                        <BreadcrumbLink href={breadcrumb.href}>
-                          {breadcrumb.label}
-                        </BreadcrumbLink>
-                      ) : (
-                        <BreadcrumbPage>{breadcrumb.label}</BreadcrumbPage>
-                      )}
-                    </BreadcrumbItem>
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
+          <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-4 border-b">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <CustomBreadcrumb breadcrumbs={breadcrumbs} />
+            </div>
+            
+            {/* Menu de usuário com opção de sair */}
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                    <User className="h-5 w-5 text-primary" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name || user?.email}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/educare-app/settings/change-password')} className="cursor-pointer">
+                    <Key className="mr-2 h-4 w-4" />
+                    <span>Trocar senha</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-red-500 cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </header>
           
           <main className="flex-1 p-6">

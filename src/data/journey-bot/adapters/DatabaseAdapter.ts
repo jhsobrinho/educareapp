@@ -1,6 +1,24 @@
-import { supabase } from '@/integrations/supabase/client';
+import { journeyBotService } from '@/services/journeyBotService';
 import { JourneyBotQuestion } from '@/types/journey-bot';
 import { DimensionIcons, DimensionLabels } from '@/types/journey-bot';
+
+interface DatabaseQuestion {
+  id: string;
+  domain_question: string; // Campo correto do backend
+  question_type?: string;
+  options?: Record<string, unknown>;
+  meta_min_months: number; // Campo correto do backend
+  meta_max_months: number; // Campo correto do backend
+  domain_name: string; // Campo correto do backend
+  order_index?: number;
+  is_active: boolean;
+  domain_feedback_1?: string; // Campo correto do backend
+  domain_feedback_2?: string; // Campo correto do backend
+  domain_feedback_3?: string; // Campo correto do backend
+  tips?: string; // Campo correto do backend (string, não object)
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface DatabaseQuestionOptions {
   value: number;
@@ -40,29 +58,21 @@ export class DatabaseAdapter {
       console.log('Carregando módulos por faixa etária para idade:', childAgeInMonths, 'meses');
       
       // Buscar todas as perguntas e agrupar por faixa etária
-      const { data: questionsData, error } = await supabase
-        .from('journey_bot_questions')
-        .select('*')
-        .eq('active', true)
-        .order('age_min_months')
-        .order('age_max_months')
-        .order('order_index');
-
-      if (error) {
-        console.error('Erro ao carregar perguntas:', error);
-        throw error;
-      }
+      const questionsData = await journeyBotService.getQuestionsForAge(childAgeInMonths);
 
       if (!questionsData || questionsData.length === 0) {
         console.warn('Nenhuma pergunta encontrada no banco de dados');
         return [];
       }
 
+      // Cast para o tipo correto
+      const typedQuestions = questionsData as unknown as DatabaseQuestion[];
+
       // Agrupar perguntas por faixa etária
-      const moduleMap = new Map<string, any[]>();
+      const moduleMap = new Map<string, DatabaseQuestion[]>();
       
-      questionsData.forEach(question => {
-        const ageRangeKey = `${question.age_min_months}-${question.age_max_months}`;
+      typedQuestions.forEach(question => {
+        const ageRangeKey = `${question.meta_min_months}-${question.meta_max_months}`;
         if (!moduleMap.has(ageRangeKey)) {
           moduleMap.set(ageRangeKey, []);
         }
@@ -148,10 +158,10 @@ export class DatabaseAdapter {
    * Enriquece uma pergunta do banco com metadados para interface WhatsApp
    */
   private static enhanceQuestionWithWhatsAppMetadata(
-    dbQuestion: any, 
+    dbQuestion: DatabaseQuestion, 
     index: number
   ): JourneyBotQuestion {
-    const dimension = dbQuestion.dimension;
+    const dimension = dbQuestion.domain_name; // Campo correto do backend
     const categoryIcon = DimensionIcons[dimension] || '📝';
     const categoryName = DimensionLabels[dimension] || 'Desenvolvimento';
 
@@ -174,29 +184,44 @@ export class DatabaseAdapter {
       }
     ];
 
-    // Create feedbacks map
+    // Create feedbacks map usando os campos corretos do backend
     const feedbacks = {
-      '1': dbQuestion.feedback_yes || 'Excelente! Continue assim!',
-      '2': dbQuestion.feedback_unknown || 'Continue observando e estimulando.',
-      '3': dbQuestion.feedback_no || 'Não se preocupe, vamos trabalhar isso juntos!'
+      '1': dbQuestion.domain_feedback_1 || 'Excelente! Continue assim!',
+      '2': dbQuestion.domain_feedback_2 || 'Continue observando e estimulando.',
+      '3': dbQuestion.domain_feedback_3 || 'Não se preocupe, vamos trabalhar isso juntos!'
     };
 
-    // Create activity suggestion from tips
-    const allTips = [
-      ...(dbQuestion.tips_yes || []),
-      ...(dbQuestion.tips_no || []),
-      ...(dbQuestion.tips_unknown || [])
-    ];
-    const activity = allTips.length > 0 
-      ? `💡 Dica para o desenvolvimento: ${allTips[0]}`
+    // Create activity suggestion from tips (agora é string, não array)
+    const tipsArray: string[] = dbQuestion.tips ? 
+      [String(dbQuestion.tips)] : [];
+    const activity = tipsArray.length > 0 
+      ? `💡 Dica para o desenvolvimento: ${tipsArray[0]}`
       : 'Continue estimulando {childName} com amor e paciência! 💕';
 
     // Create importance message
     const importance = `Esta é uma área muito importante para o desenvolvimento do {childName}. Vamos ver como {ele/ela} está se saindo! 🌟`;
 
-    // Attach WhatsApp metadata
+    // Attach WhatsApp metadata usando campos corretos
     const enhancedQuestion: JourneyBotQuestion = {
-      ...dbQuestion,
+      id: dbQuestion.id,
+      question_text: dbQuestion.domain_question, // Campo correto do backend
+      dimension: dbQuestion.domain_name, // Campo correto do backend
+      age_min_months: dbQuestion.meta_min_months, // Campo correto do backend
+      age_max_months: dbQuestion.meta_max_months, // Campo correto do backend
+      meta_min_months: dbQuestion.meta_min_months, // Novo campo obrigatório
+      meta_max_months: dbQuestion.meta_max_months, // Novo campo obrigatório
+      domain_name: dbQuestion.domain_name, // Novo campo obrigatório
+      domain_question: dbQuestion.domain_question, // Novo campo obrigatório
+      order_index: dbQuestion.order_index || index,
+      active: dbQuestion.is_active,
+      feedback_yes: dbQuestion.domain_feedback_1,
+      feedback_no: dbQuestion.domain_feedback_3,
+      feedback_unknown: dbQuestion.domain_feedback_2,
+      tips_yes: tipsArray,
+      tips_no: tipsArray,
+      tips_unknown: tipsArray,
+      created_at: dbQuestion.created_at || new Date().toISOString(),
+      updated_at: dbQuestion.updated_at || new Date().toISOString(),
       jsonData: {
         categoryName,
         categoryIcon,
@@ -215,20 +240,8 @@ export class DatabaseAdapter {
    */
   static async hasQuestionsForAge(childAgeInMonths: number): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('journey_bot_questions')
-        .select('id')
-        .lte('age_min_months', childAgeInMonths + 3)
-        .gte('age_max_months', Math.max(0, childAgeInMonths - 3))
-        .eq('active', true)
-        .limit(1);
-
-      if (error) {
-        console.error('Erro ao verificar perguntas:', error);
-        return false;
-      }
-
-      return (data && data.length > 0);
+      const questions = await journeyBotService.getQuestionsForAge(childAgeInMonths);
+      return questions && questions.length > 0;
     } catch (error) {
       console.error('Erro ao verificar disponibilidade de perguntas:', error);
       return false;

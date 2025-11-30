@@ -31,6 +31,7 @@ import {
   Activity,
   FileBarChart,
   Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -159,6 +160,16 @@ const AdminLayout: React.FC = () => {
                     >
                       <BookOpen className="h-5 w-5" />
                       <span>Materiais</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => navigate('/admin/journey-questions')}
+                      className="text-slate-200 hover:bg-slate-700 hover:text-white"
+                    >
+                      <MessageSquare className="h-5 w-5" />
+                      <span>Gestão de Perguntas</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>

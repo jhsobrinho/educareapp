@@ -79,12 +79,20 @@ export const ChildProfileTabs: React.FC<ChildProfileTabsProps> = ({
           <p className="text-gray-600 mb-4">
             Converse com o TitiNauta sobre o desenvolvimento da criança
           </p>
-          <button 
-            onClick={() => navigate(`/educare-app/journey-bot-whatsapp/${childId}`)}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors"
-          >
-            💬 Conversar com TitiNauta
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button 
+              onClick={() => navigate(`/educare-app/journey-bot-whatsapp/${childId}`)}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              💬 Conversar com TitiNauta
+            </button>
+            <button 
+              onClick={() => navigate(`/educare-app/titinauta-media/${childId}`)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              🎥 TitiNauta 2.0 <span className="bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full">Novo</span>
+            </button>
+          </div>
         </div>
       </TabsContent>
 

@@ -10,31 +10,77 @@ export interface JourneyBotSession {
   answered_questions: number;
   current_dimension?: string | null;
   status: 'active' | 'completed' | 'paused';
-  session_data: Record<string, any>;
+  session_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
 
 export interface JourneyBotQuestion {
   id: string;
-  dimension: string; // Keep as string since it comes from database
-  question_text: string;
-  age_min_months: number;
-  age_max_months: number;
+  
+  // Metadados do módulo
+  meta_title?: string;
+  meta_min_months: number;
+  meta_max_months: number;
+  meta_description?: string;
+  
+  // Dados da semana
+  week?: number;
+  week_title?: string;
+  week_description?: string;
+  
+  // Gamificação - Boas-vindas
+  gamification_welcome_title?: string;
+  gamification_welcome_message?: string;
+  
+  // Gamificação - Badge e progresso
+  gamification_badge_name?: string;
+  gamification_progress_message?: string;
+  gamification_challenge_description?: string;
+  gamification_tips?: string;
+  gamification_closing_message?: string;
+  gamification_affective_record?: string;
+  gamification_personalized_message?: string;
+  
+  // Dados da pergunta principal
+  domain_name: string;
+  domain_question: string;
+  domain_importance?: string;
+  
+  // Feedbacks por resposta
+  domain_feedback_1?: string;
+  domain_feedback_2?: string;
+  domain_feedback_3?: string;
+  
+  // Atividades e alertas
+  domain_activities?: string;
+  domain_alert_missing?: string;
+  
+  // Controles
+  order_index?: number;
+  is_active?: boolean;
+  
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+  
+  // Campos legados (para compatibilidade)
+  dimension?: string;
+  question_text?: string;
+  age_min_months?: number;
+  age_max_months?: number;
   age_min_weeks?: number | null;
   age_max_weeks?: number | null;
-  order_index: number;
   concern_level?: number;
-  active: boolean;
-  feedback_yes: string;
-  feedback_no: string;
-  feedback_unknown: string;
+  active?: boolean;
+  feedback_yes?: string;
+  feedback_no?: string;
+  feedback_unknown?: string;
   tips_yes?: string[] | null;
   tips_no?: string[] | null;
   tips_unknown?: string[] | null;
-  created_at: string;
-  updated_at: string;
-  // WhatsApp interface metadata
+  
+  // WhatsApp interface metadata (legado)
   jsonData?: {
     categoryName: string;
     categoryIcon: string;
@@ -75,7 +121,7 @@ export interface JourneyBotAchievement {
   achievement_name: string;
   achievement_description?: string | null;
   dimension?: string | null;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   earned_at: string;
 }
 

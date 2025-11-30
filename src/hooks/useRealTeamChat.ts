@@ -53,6 +53,16 @@ export interface ChatMessage {
   is_ai_processed: boolean;
 }
 
+export interface PendingInvite {
+  id: string;
+  group_id: string;
+  group_name: string;
+  invited_by_id: string;
+  invited_by_name: string;
+  invited_at: string;
+  status: 'pending' | 'accepted' | 'declined';
+}
+
 // Funções de conversão entre tipos do serviço e tipos do componente
 const convertChatGroupToTeamGroup = (group: ChatGroup): TeamChatGroup => ({
   id: group.id,
@@ -104,6 +114,7 @@ export function useRealTeamChat(childId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
 
   // Carregar grupo de chat real
   const loadGroup = useCallback(async () => {
@@ -116,23 +127,14 @@ export function useRealTeamChat(childId?: string) {
     setError(null);
 
     try {
-      // Primeiro, buscar a equipe associada à criança
-      const teamsResponse = await teamService.listTeams();
-      const teams = teamsResponse.data || [];
-      const childTeam = teams.find((team: { children?: Array<{ id: string; name: string }> }) => 
-        team.children?.some((child: { id: string }) => child.id === childId)
-      );
-
-      if (!childTeam) {
-        throw new Error('Equipe não encontrada para esta criança');
-      }
-
-      // Buscar ou criar grupo de chat para a equipe
-      const chatGroup = await chatService.getOrCreateTeamChatGroup(
-        childTeam.id, 
-        childTeam.children?.find(child => child.id === childId)?.name
-      );
-
+      console.log('🔍 Buscando grupo de chat para criança:', childId);
+      
+      // Buscar grupo de chat existente para a criança diretamente
+      // Se não existir, será criado automaticamente pelo backend
+      const chatGroup = await chatService.getOrCreateChildChatGroup(childId);
+      
+      console.log('✅ Grupo encontrado/criado:', chatGroup);
+      
       const teamGroup = convertChatGroupToTeamGroup(chatGroup);
       setGroup(teamGroup);
 
@@ -148,12 +150,18 @@ export function useRealTeamChat(childId?: string) {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar grupo';
+      console.error('❌ Erro ao carregar grupo:', errorMessage);
       setError(errorMessage);
-      toast({
-        title: "Erro ao carregar chat",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      
+      // Para simplificar, apenas mostrar o erro sem tentar criar automaticamente
+      // O grupo será criado quando necessário pelo backend
+      {
+        toast({
+          title: "Erro ao carregar chat",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -330,6 +338,33 @@ export function useRealTeamChat(childId?: string) {
     }
   }, [group, isAuthenticated, navigate]);
 
+  // Aceitar convite
+  const acceptInvite = useCallback(async () => {
+    if (!pendingInvite || !isAuthenticated) return false;
+
+    try {
+      // Simular aceitação do convite - em produção, chamaria endpoint específico
+      // Por enquanto, vamos simular que o convite foi aceito e carregar o grupo
+      setPendingInvite(null);
+      await loadGroup();
+
+      toast({
+        title: "Convite aceito",
+        description: "Você agora faz parte do grupo de comunicação!",
+      });
+
+      return true;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao aceitar convite';
+      toast({
+        title: "Erro ao aceitar convite",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [pendingInvite, isAuthenticated, loadGroup]);
+
   useEffect(() => {
     if (isAuthenticated && childId) {
       loadGroup();
@@ -343,10 +378,12 @@ export function useRealTeamChat(childId?: string) {
     isLoading,
     error,
     isAuthenticated,
+    pendingInvite,
     createGroup,
     sendMessage,
     inviteParticipant,
     removeParticipant,
+    acceptInvite,
     refreshGroup: loadGroup,
   };
 }

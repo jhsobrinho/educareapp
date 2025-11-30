@@ -68,15 +68,45 @@ const { body, param, query } = require('express-validator');
 
 /**
  * @swagger
- * /api/teams:
+ * /api/teams/my:
  *   get:
- *     summary: Listar todas as equipes
+ *     summary: Listar equipes do usuário atual
  *     tags: [Teams]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Lista de equipes
+ *         description: Lista de equipes onde o usuário é membro ativo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     teams:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Team'
+ *                     total:
+ *                       type: integer
+ */
+router.get('/my', verifyToken, teamController.listMyTeams);
+
+/**
+ * @swagger
+ * /api/teams:
+ *   get:
+ *     summary: Listar todas as equipes (apenas admin/owner)
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de todas as equipes do sistema
  *         content:
  *           application/json:
  *             schema:

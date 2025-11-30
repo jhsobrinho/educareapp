@@ -1,26 +1,53 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { useProfessionalChildren } from '@/hooks/useProfessionalChildren';
-import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
+import { useProfessionalChildren } from '@/hooks/useProfessionalChildren';
+import { useProfessionalTeamChats } from '@/hooks/useProfessionalTeamChats';
+import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
+import { useTeamInvites } from '@/hooks/useTeamInvites';
+import { ProfessionalTeamChat } from '@/components/educare-app/chat/ProfessionalTeamChat';
+import { ProfessionalChatInterface } from '@/components/educare-app/chat/ProfessionalChatInterface';
 import { 
   Users, UserPlus, ClipboardList, FileText, 
-  Clock, CheckCircle, XCircle, Loader2, MessageCircle
+  Clock, CheckCircle, XCircle, Loader2, MessageCircle, Mail, RefreshCw 
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ProfessionalDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { childrenAccess, isLoading } = useProfessionalChildren();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('assigned');
+  
+  // Hook para convites de chat
+  const {
+    receivedInvites,
+    pendingCount: chatInvitesPendingCount,
+    isLoading: chatInvitesLoading,
+    error: chatInvitesError,
+    acceptInvite: acceptChatInvite,
+    declineInvite: declineChatInvite,
+    refresh: refreshChatInvites
+  } = useTeamInvites();
+
+  const { childrenAccess, isLoading } = useProfessionalChildren();
+  const { teamChats, isLoading: teamChatsLoading, hasTeamChats } = useProfessionalTeamChats();
+  const { user } = useAuth();
   
   const assignedChildren = childrenAccess.filter(child => child.status === 'approved');
   const pendingInvitations = childrenAccess.filter(child => child.status === 'pending');
+
+  // Automaticamente ativar a aba "Chats Ativos" quando há chats disponíveis
+  React.useEffect(() => {
+    if (hasTeamChats && !teamChatsLoading && activeTab === 'assigned' && assignedChildren.length === 0) {
+      console.log('🔄 Ativando automaticamente a aba "Chats Ativos" pois há chats disponíveis');
+      setActiveTab('active-chats');
+    }
+  }, [hasTeamChats, teamChatsLoading, activeTab, assignedChildren.length]);
+
+
   
   return (
     <>
@@ -76,11 +103,11 @@ const ProfessionalDashboard: React.FC = () => {
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center text-center">
                     <div className="bg-green-100 p-2 rounded-full mb-2">
-                      <MessageCircle className="h-5 w-5 text-green-600" />
+                      <Mail className="h-5 w-5 text-green-600" />
                     </div>
-                    <h3 className="font-medium">Mensagens</h3>
-                    <span className="text-2xl font-bold text-green-600">0</span>
-                    <p className="text-xs text-slate-600 mt-1">Não lidas</p>
+                    <h3 className="font-medium">Convites de Chat</h3>
+                    <span className="text-2xl font-bold text-green-600">{chatInvitesPendingCount}</span>
+                    <p className="text-xs text-slate-600 mt-1">Pendentes</p>
                   </div>
                 </CardContent>
               </Card>
@@ -88,20 +115,12 @@ const ProfessionalDashboard: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Tabs defaultValue="assigned" onValueChange={setActiveTab} value={activeTab}>
-          <TabsList>
-            <TabsTrigger value="assigned">
-              Crianças Atribuídas
-              {assignedChildren.length > 0 && (
-                <Badge className="ml-2 bg-blue-600">{assignedChildren.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="invitations">
-              Convites
-              {pendingInvitations.length > 0 && (
-                <Badge className="ml-2 bg-amber-600">{pendingInvitations.length}</Badge>
-              )}
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="assigned">Crianças Atribuídas</TabsTrigger>
+            <TabsTrigger value="invitations">Convites</TabsTrigger>
+            <TabsTrigger value="chat-invites">Convites de Chat</TabsTrigger>
+            <TabsTrigger value="active-chats">Chats Ativos</TabsTrigger>
           </TabsList>
           
           <TabsContent value="assigned" className="space-y-4 mt-4">
@@ -216,6 +235,125 @@ const ProfessionalDashboard: React.FC = () => {
                   <h3 className="text-lg font-medium mb-2">Nenhum convite pendente</h3>
                   <p className="text-sm text-slate-500">
                     Você não possui convites pendentes de responsáveis.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="chat-invites" className="space-y-4 mt-4">
+            {chatInvitesLoading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : receivedInvites.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Convites de Chat Recebidos</h3>
+                  <Button 
+                    onClick={refreshChatInvites} 
+                    variant="outline" 
+                    size="sm"
+                    disabled={chatInvitesLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${chatInvitesLoading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                </div>
+                
+                {receivedInvites.map((invite) => (
+                  <Card key={invite.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <MessageCircle className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-medium">{invite.team_name}</h4>
+                            <Badge 
+                              variant={invite.status === 'invited' ? 'secondary' : 'default'}
+                              className="text-xs"
+                            >
+                              {invite.status === 'invited' ? 'Pendente' : 
+                                invite.status === 'active' ? 'Aceito' : 'Recusado'}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-sm text-slate-600 mb-2">
+                            <strong>Convidado por:</strong> {invite.invited_by_name}
+                          </p>
+                          
+                          {invite.team_description && (
+                            <p className="text-sm text-slate-600 mb-3 p-2 bg-slate-50 rounded">
+                              <strong>Descrição:</strong> {invite.team_description}
+                            </p>
+                          )}
+                          
+                          <p className="text-xs text-slate-500">
+                            Enviado em {new Date(invite.created_at).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit', 
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                        
+                        {invite.status === 'invited' && (
+                          <div className="flex gap-2 ml-4">
+                            <Button
+                              onClick={() => acceptChatInvite(invite.id)}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              disabled={chatInvitesLoading}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Aceitar
+                            </Button>
+                            <Button
+                              onClick={() => declineChatInvite(invite.id)}
+                              size="sm"
+                              variant="outline"
+                              className="border-red-600 text-red-600 hover:bg-red-50"
+                              disabled={chatInvitesLoading}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Recusar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Mail className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                  <h3 className="text-lg font-medium mb-2">Nenhum convite de chat</h3>
+                  <p className="text-sm text-slate-500">
+                    Você não possui convites de chat pendentes.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="active-chats" className="space-y-4 mt-4">
+            {teamChatsLoading ? (
+              <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : hasTeamChats ? (
+              <ProfessionalChatInterface teamChats={teamChats} />
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <MessageCircle className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                  <h3 className="text-lg font-medium mb-2">Nenhum chat ativo</h3>
+                  <p className="text-sm text-slate-500">
+                    Você ainda não participa de nenhum grupo de chat. Aceite os convites na aba "Convites de Chat" para começar a participar das conversas da equipe terapêutica.
                   </p>
                 </CardContent>
               </Card>

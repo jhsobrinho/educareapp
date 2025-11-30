@@ -5,9 +5,83 @@ const Profile = require('../models/Profile');
 const { Op } = require('sequelize');
 
 const teamController = {
+  // Listar equipes do usuário atual (profissionais e pais)
+  async listMyTeams(req, res) {
+    try {
+      const userId = req.user.id;
+      console.log('🔍 Buscando equipes para usuário:', userId);
+
+      // Buscar equipes onde o usuário é membro ativo
+      const teamMembers = await TeamMember.findAll({
+        where: { 
+          userId: userId, 
+          status: 'active' 
+        },
+        include: [{
+          model: Team,
+          as: 'team',
+          include: [
+            {
+              model: User,
+              as: 'owner',
+              attributes: ['id', 'name', 'email']
+            },
+            {
+              model: TeamMember,
+              as: 'members',
+              include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'name', 'email', 'role']
+              }]
+            }
+          ]
+        }]
+      });
+
+      console.log('✅ TeamMembers encontrados:', teamMembers.length);
+
+      const teams = teamMembers.map(tm => {
+        const team = tm.team;
+        return {
+          ...team.toJSON(),
+          memberCount: team.members?.length || 0,
+          activeMemberCount: team.members?.filter(m => m.status === 'active').length || 0,
+          pendingInvites: team.members?.filter(m => m.status === 'invited').length || 0
+        };
+      });
+
+      console.log('📊 Teams processadas:', teams.length);
+
+      res.json({
+        success: true,
+        data: {
+          teams: teams,
+          total: teams.length
+        }
+      });
+    } catch (error) {
+      console.error('❌ Erro ao listar equipes do usuário:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  },
+
   // Listar todas as equipes (apenas owner/admin)
   async listTeams(req, res) {
     try {
+      const userRole = req.user.role;
+      
+      // Verificar se o usuário tem permissão para ver todas as equipes
+      if (!['owner', 'admin'].includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso negado. Apenas administradores podem listar todas as equipes.'
+        });
+      }
+
       const teams = await Team.findAll({
         include: [
           {

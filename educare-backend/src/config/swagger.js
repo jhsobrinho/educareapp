@@ -31,6 +31,18 @@ const options = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
+        apiKey: {
+          type: 'apiKey',
+          in: 'query',
+          name: 'api_key',
+          description: 'API Key para integração externa'
+        },
+        apiKeyHeader: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+          description: 'API Key via header'
+        },
       },
     },
     security: [

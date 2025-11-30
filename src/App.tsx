@@ -2,6 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { CustomDevTools, DevToolsDemo } from "@/components/dev";
+import { devToolsConfig } from "@/config/devtools.config";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from "@/providers/CustomAuthProvider";
@@ -11,13 +13,18 @@ import BlogPage from "./pages/BlogPage";
 import BlogPost from "./pages/BlogPost";
 import EducareApp from "./pages/educare-app/EducareApp";
 import EducareAuth from "./pages/educare-app/auth/EducareAuth";
+import ForgotPasswordPage from "./pages/educare-app/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/educare-app/auth/ResetPasswordPage";
 import EducareAppDashboard from "./pages/educare-app/EducareAppDashboard";
 import ChildrenManagement from "./pages/educare-app/ChildrenManagement";
 import ChildProfile from "./pages/educare-app/ChildProfile";
 import ChildForm from "./pages/educare-app/ChildForm";
 import JourneyBotPage from "./pages/educare-app/JourneyBotPage";
+import JourneyV2Page from "./pages/educare-app/JourneyV2Page";
 import EducareActivitiesPage from "./pages/educare-app/ActivitiesPage";
 import EducareSettingsPage from "./pages/educare-app/SettingsPage";
+import SettingsLayout from "./pages/educare-app/settings/SettingsLayout";
+import ChangePasswordPage from "./pages/educare-app/settings/ChangePasswordPage";
 import ProfessionalDashboard from "./pages/educare-app/professional/ProfessionalDashboard";
 import ChildAnalysis from "./pages/educare-app/professional/ChildAnalysis";
 import EducareAppLayout from "./pages/educare-app/EducareAppLayout";
@@ -36,8 +43,24 @@ import TeamsManagement from "./pages/admin/TeamsManagement";
 import GlobalChildrenManagementPage from "./pages/admin/GlobalChildrenManagement";
 import { AllChatsView } from "./components/educare-app/admin/AllChatsView";
 import ProfessionalOnlyGuard from "./components/auth/ProfessionalOnlyGuard";
+import JourneyQuestionsManagement from "./pages/admin/JourneyQuestionsManagement";
+import MediaResourcesManagement from "./pages/admin/MediaResourcesManagement";
+import CommunicationPage from "./pages/educare-app/CommunicationPage";
+import TitiNautaPage from "./pages/educare-app/TitiNautaPage";
+import TitiNautaMediaDemo from "./pages/educare-app/TitiNautaMediaDemo";
+import TitiNautaMediaPage from "./pages/educare-app/TitiNautaMediaPage";
+import TitiNautaJourney from "./pages/educare-app/TitiNautaJourney";
+import TitiNautaChatTest from "./tests/TitiNautaChatTest";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -62,6 +85,8 @@ const App = () => (
               {/* Official Educare App Landing Page */}
               <Route path="/educare-app" element={<EducareApp />} />
               <Route path="/educare-app/auth" element={<EducareAuth />} />
+              <Route path="/educare-app/auth/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/educare-app/auth/reset-password" element={<ResetPasswordPage />} />
               
               {/* Protected Educare App Routes */}
               <Route path="/educare-app" element={<EducareAppLayout />}>
@@ -71,9 +96,22 @@ const App = () => (
                 <Route path="child/new" element={<ChildForm />} />
                 <Route path="child/:id/edit" element={<ChildForm />} />
                 <Route path="journey-bot" element={<JourneyBotPage />} />
+                <Route path="journey-v2" element={<JourneyV2Page />} />
+                <Route path="journey-v2/:journeyId" element={<JourneyV2Page />} />
+                <Route path="journey-v2/:journeyId/:weekId" element={<JourneyV2Page />} />
+                <Route path="communication" element={<CommunicationPage />} />
                 <Route path="journey-bot-whatsapp/:childId" element={<WhatsAppJourneyBotPage />} />
+                <Route path="titinauta/:childId" element={<TitiNautaPage />} />
+                <Route path="titinauta-media-demo" element={<TitiNautaMediaDemo />} />
+                <Route path="titinauta-media/:childId" element={<TitiNautaMediaPage />} />
+                <Route path="titinauta-journey" element={<TitiNautaJourney />} />
+                <Route path="titinauta-journey/:childId" element={<TitiNautaJourney />} />
+                <Route path="titinauta-test" element={<TitiNautaChatTest />} />
                 <Route path="activities" element={<EducareActivitiesPage />} />
-                <Route path="settings" element={<EducareSettingsPage />} />
+                <Route path="settings" element={<SettingsLayout />}>
+                  <Route index element={<EducareSettingsPage />} />
+                  <Route path="change-password" element={<ChangePasswordPage />} />
+                </Route>
                 
                 {/* Professional Routes - Protected */}
                 <Route path="professional/dashboard" element={
@@ -94,6 +132,8 @@ const App = () => (
                 <Route path="admin/teams" element={<TeamsManagement />} />
                 <Route path="admin/children" element={<GlobalChildrenManagementPage />} />
                 <Route path="admin/plans" element={<SubscriptionPlansManagement />} />
+                <Route path="admin/journey-questions" element={<JourneyQuestionsManagement />} />
+                <Route path="admin/media-resources" element={<MediaResourcesManagement />} />
                 <Route path="owner/dashboard" element={<OwnerDashboard />} />
                 <Route path="owner/users" element={<UserManagement />} />
                 <Route path="owner/professionals" element={<AdminProfessionals />} />
@@ -102,6 +142,7 @@ const App = () => (
                 <Route path="owner/chats" element={<AllChatsView />} />
                 <Route path="owner/plans" element={<SubscriptionPlansManagement />} />
                 <Route path="owner/subscriptions" element={<AdminSubscriptions />} />
+                <Route path="owner/media-resources" element={<MediaResourcesManagement />} />
                 
                 {/* Professional Routes - Gestão de Crianças */}
                 <Route path="professional/children" element={
@@ -178,6 +219,11 @@ const App = () => (
                 </div>
               } />
               
+              {/* DevTools Demo - apenas em desenvolvimento */}
+              {process.env.NODE_ENV === 'development' && (
+                <Route path="/dev/tools" element={<DevToolsDemo />} />
+              )}
+              
               {/* Catch all - redirect to official landing */}
               <Route path="*" element={<Navigate to="/educare-app" replace />} />
             </Routes>
@@ -185,6 +231,14 @@ const App = () => (
         </TooltipProvider>
       </AuthProvider>
     </HelmetProvider>
+    {/* Renderizar DevTools apenas em ambiente de desenvolvimento */}
+    {process.env.NODE_ENV === 'development' && devToolsConfig.enabled && (
+      <CustomDevTools 
+        initialIsOpen={devToolsConfig.reactQuery.initialIsOpen} 
+        position={devToolsConfig.reactQuery.position} 
+        buttonPosition={devToolsConfig.reactQuery.buttonPosition} 
+      />
+    )}
   </QueryClientProvider>
 );
 

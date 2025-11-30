@@ -6,9 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:prod": "BROWSERSLIST_IGNORE_OLD_DATA=1 vite build",
+    "build:safe": "npm install --omit=dev --legacy-peer-deps && BROWSERSLIST_IGNORE_OLD_DATA=1 vite build",
     "build:dev": "vite build --mode development",
+    "build:vps": "npm install --legacy-peer-deps && BROWSERSLIST_IGNORE_OLD_DATA=1 vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "update-browserslist": "npm install caniuse-lite@latest --no-save"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -41,10 +45,6 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@supabase/supabase-js": "^2.50.2",
     "@tanstack/react-query": "^5.56.2",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/react-hooks": "^8.0.1",
-    "@testing-library/user-event": "^14.6.1",
     "@types/canvas-confetti": "^1.9.0",
     "@types/file-saver": "^2.0.7",
     "@types/papaparse": "^5.3.14",
@@ -90,6 +90,11 @@
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@tanstack/react-query-devtools": "^5.90.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.9.0",

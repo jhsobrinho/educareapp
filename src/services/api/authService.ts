@@ -51,6 +51,15 @@ export interface PhoneVerificationResult {
   error?: string;
 }
 
+export interface PhoneLoginResult {
+  success: boolean;
+  message?: string;
+  expiresAt?: Date;
+  error?: string;
+  canUseWithEmail?: boolean;
+  email?: string | null;
+}
+
 export interface PhoneCodeVerificationData {
   phone: string;
   code: string;
@@ -61,37 +70,96 @@ export interface PhoneCodeVerificationData {
  */
 export const signInWithEmail = async (email: string, password: string): Promise<AuthResult> => {
   try {
+    console.log(`signInWithEmail: Tentando login com email: ${email}`);
+    
+    // Fazer a requisição de login
     const response = await httpClient.post<{
       user: AuthUser;
       token: string;
       refreshToken: string;
     }>('/api/auth/login', { email, password }, { requiresAuth: false });
 
-    if (!response.success || !response.data) {
+    console.log('signInWithEmail: Resposta completa:', response);
+    console.log('signInWithEmail: response.success:', response.success);
+    console.log('signInWithEmail: response.data:', response.data);
+
+    // Verificar se a resposta tem sucesso
+    if (!response.success) {
+      // Verificar se é um problema com senha temporária
+      const isTempPassword = password.includes('@');
+      const errorMessage = response.error || 'Erro ao fazer login';
+      
+      if (isTempPassword && errorMessage.includes('Credenciais inválidas')) {
+        console.error('Erro de senha temporária:', errorMessage);
+        return {
+          success: false,
+          error: 'Senha temporária inválida ou expirada. Por favor, solicite uma nova senha.'
+        };
+      }
+      
       return {
         success: false,
-        error: response.error || 'Erro ao fazer login'
+        error: errorMessage
       };
     }
 
-    const { user, token, refreshToken } = response.data;
+    // O httpClient já retorna os dados em response.data
+    // Verificar se temos os dados necessários
+    if (!response.data) {
+      console.error('Dados de autenticação ausentes na resposta:', response);
+      return {
+        success: false,
+        error: 'Dados de autenticação incompletos'
+      };
+    }
 
-    // Armazena os dados de autenticação
-    setStoredAuthToken(token);
-    setStoredRefreshToken(refreshToken);
-    setStoredUserData(user);
+    // Extrair dados da resposta (response.data já contém user, token, refreshToken)
+    const { user: userData, token: tokenData, refreshToken: refreshTokenData = '' } = response.data;
+    
+    console.log('signInWithEmail: userData:', userData);
+    console.log('signInWithEmail: tokenData:', tokenData ? 'presente' : 'ausente');
+    
+    // Validar se temos user e token
+    if (!userData || !tokenData) {
+      console.error('User ou token ausentes:', { userData: !!userData, tokenData: !!tokenData });
+      return {
+        success: false,
+        error: 'Dados de autenticação incompletos'
+      };
+    }
+
+    // Armazenar os dados de autenticação
+    setStoredAuthToken(tokenData);
+    setStoredRefreshToken(refreshTokenData || tokenData);
+    setStoredUserData(userData);
+
+    console.log('signInWithEmail: Login bem-sucedido para:', userData.email || userData.id);
+    console.log('Dados do usuário armazenados:', userData);
+    console.log('Token armazenado:', tokenData.substring(0, 20) + '...');
 
     return {
       success: true,
-      user,
-      token,
-      refreshToken
+      user: userData,
+      token: tokenData,
+      refreshToken: refreshTokenData || tokenData
     };
   } catch (error) {
     console.error('Erro ao fazer login:', error);
+    
+    // Verificar se é um problema com senha temporária
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao fazer login';
+    const isPossiblyTempPasswordIssue = email.includes('edcuareapp') || (password && password.includes('@'));
+    
+    if (isPossiblyTempPasswordIssue) {
+      return {
+        success: false,
+        error: 'Senha temporária inválida ou expirada. Por favor, solicite uma nova senha.'
+      };
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido ao fazer login'
+      error: errorMessage
     };
   }
 };
@@ -179,16 +247,39 @@ export const signOut = async (): Promise<boolean> => {
 };
 
 /**
- * Recuperação de senha
+ * Solicitação de recuperação de senha (envia email)
  */
-export const resetPassword = async (email: string): Promise<ApiResponse> => {
+export const forgotPassword = async (email: string): Promise<ApiResponse> => {
   try {
-    return await httpClient.post('/api/auth/reset-password', { email }, { requiresAuth: false });
+    console.log(`Solicitando recuperação de senha para: ${email}`);
+    const response = await httpClient.post('/api/auth/forgot-password', { email }, { requiresAuth: false });
+    
+    console.log('Resposta da solicitação de recuperação de senha:', response);
+    return response;
   } catch (error) {
     console.error('Erro ao solicitar recuperação de senha:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido ao solicitar recuperação de senha'
+    };
+  }
+};
+
+/**
+ * Redefinição de senha com token
+ */
+export const resetPassword = async (token: string, password: string): Promise<ApiResponse> => {
+  try {
+    console.log(`Redefinindo senha com token: ${token.substring(0, 10)}...`);
+    const response = await httpClient.post('/api/auth/reset-password', { token, password }, { requiresAuth: false });
+    
+    console.log('Resposta da redefinição de senha:', response);
+    return response;
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao redefinir senha'
     };
   }
 };
@@ -291,6 +382,62 @@ export const sendPhoneVerification = async (phone: string): Promise<PhoneVerific
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido ao enviar código de verificação'
+    };
+  }
+};
+
+/**
+ * Login por telefone com senha temporária
+ */
+export const loginByPhone = async (phone: string): Promise<PhoneLoginResult> => {
+  try {
+    const response = await httpClient.post<{
+      message: string;
+      expiresAt: string;
+      canUseWithEmail?: boolean;
+      email?: string | null;
+    }>('/api/auth/login-by-phone', { phone }, { requiresAuth: false });
+
+    // Verificar se a resposta foi bem-sucedida
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Erro ao enviar senha temporária'
+      };
+    }
+
+    // Verificar se temos dados na resposta
+    const data = response.data;
+    if (!data) {
+      return {
+        success: false,
+        error: 'Resposta sem dados do servidor'
+      };
+    }
+
+    // Verificar se a mensagem indica sucesso
+    if (!data.message || !data.message.includes('Senha temporária enviada')) {
+      return {
+        success: false,
+        error: data.message || 'Resposta inválida do servidor'
+      };
+    }
+
+    console.log('Resposta do loginByPhone processada com sucesso:', data);
+
+    // Retornar os dados formatados corretamente
+    return {
+      success: true,
+      message: data.message,
+      expiresAt: new Date(data.expiresAt),
+      canUseWithEmail: data.canUseWithEmail || false,
+      email: data.email || null
+    };
+  } catch (error) {
+    console.error('Erro ao solicitar login por telefone:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao solicitar login por telefone'
     };
   }
 };

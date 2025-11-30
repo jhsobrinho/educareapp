@@ -31,8 +31,10 @@ export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: true,
     rollupOptions: {
-      // Make sure to exclude problematic dependencies if needed
-      // external: ['problematic-dependency'],
+      // Excluir pacotes de desenvolvimento do build de produção
+      external: mode === 'production' ? [
+        '@tanstack/react-query-devtools'
+      ] : [],
     },
   },
 }));

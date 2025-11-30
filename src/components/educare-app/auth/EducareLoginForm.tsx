@@ -15,9 +15,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, AlertCircle, Mail, Phone } from 'lucide-react';
+import { Loader2, AlertCircle, Mail, Phone, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PhoneVerification } from '@/components/auth/PhoneVerification';
@@ -46,6 +47,7 @@ const EducareLoginForm: React.FC<EducareLoginFormProps> = ({ redirectPath }) => 
   const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailConfirmationAlert, setShowEmailConfirmationAlert] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -98,37 +100,14 @@ const EducareLoginForm: React.FC<EducareLoginFormProps> = ({ redirectPath }) => 
     setIsLoading(true);
     setShowEmailConfirmationAlert(false);
     
+    // Limpar erros anteriores
+    form.clearErrors();
+    
     try {
       console.log('Attempting login with:', data.loginIdentifier);
-      const { error } = await signIn(data.loginIdentifier, data.password);
+      await signIn(data.loginIdentifier, data.password);
       
-      if (error) {
-        console.error('Login error:', error);
-        
-        // Handle specific error cases
-        if (error.message.includes('Email not confirmed')) {
-          setShowEmailConfirmationAlert(true);
-          toast({
-            variant: "destructive",
-            title: "Email não confirmado",
-            description: "Por favor, confirme seu email antes de fazer login. Verifique sua caixa de entrada.",
-          });
-          return;
-        }
-
-        let errorMessage = "Email ou senha incorretos. Por favor, tente novamente.";
-        
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = "Credenciais inválidas. Verifique seu email e senha.";
-        } else if (error.message.includes('Too many requests')) {
-          errorMessage = "Muitas tentativas de login. Tente novamente em alguns minutos.";
-        } else if (error.message.includes('User not found')) {
-          errorMessage = "Usuário não encontrado. Verifique seu email ou cadastre-se.";
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
+      // Se chegou aqui, login foi bem-sucedido
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao Educare.",
@@ -152,11 +131,79 @@ const EducareLoginForm: React.FC<EducareLoginFormProps> = ({ redirectPath }) => 
     } catch (error: any) {
       console.error('Login error:', error);
       
-      toast({
-        variant: "destructive",
-        title: "Erro ao fazer login",
-        description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
-      });
+      const errorMsg = error?.message || 'Erro desconhecido';
+      
+      // Handle specific error cases
+      if (errorMsg.includes('Email not confirmed')) {
+        setShowEmailConfirmationAlert(true);
+        toast({
+          variant: "destructive",
+          title: "Email não confirmado",
+          description: "Por favor, confirme seu email antes de fazer login. Verifique sua caixa de entrada.",
+        });
+        return;
+      }
+
+      let errorMessage = "Email ou senha incorretos. Por favor, tente novamente.";
+      
+      if (errorMsg.includes('Invalid login credentials') || errorMsg.includes('Credenciais inválidas')) {
+        errorMessage = "Credenciais inválidas. Verifique seu email e senha.";
+      } else if (errorMsg.includes('Too many requests')) {
+        errorMessage = "Muitas tentativas de login. Tente novamente em alguns minutos.";
+      } else if (errorMsg.includes('User not found') || errorMsg.includes('Usuário não encontrado')) {
+        errorMessage = "Usuário não encontrado. Verifique seu email ou cadastre-se.";
+      } else if (errorMsg.includes('senha temporária')) {
+        errorMessage = "Senha temporária inválida ou expirada. Por favor, solicite uma nova senha.";
+        
+        // Verificar se o email tem erro de digitação
+        if (data.loginIdentifier.includes('@edcuareapp.com')) {
+          errorMessage += "\n\nVerifique se há um erro de digitação no email. Talvez você queira tentar com '@educareapp.com'.";
+        }
+        
+        // Sugerir usar o telefone
+        errorMessage += "\n\nVocê também pode tentar fazer login usando seu telefone.";
+      } else if (errorMsg.includes('Email ou senha incorretos')) {
+        errorMessage = errorMsg;
+      }
+      
+      // Marcar campos com erro visual
+      form.setError('loginIdentifier', { type: 'manual', message: ' ' });
+      form.setError('password', { type: 'manual', message: errorMessage });
+      
+      // Verificar se a mensagem tem múltiplas linhas
+      const errorLines = error.message ? error.message.split('\n\n') : [];
+      
+      if (errorLines.length > 1) {
+        // Se tiver múltiplas linhas, usar a primeira como título e o resto como descrição
+        const mainError = errorLines[0];
+        const additionalInfo = errorLines.slice(1).join('\n');
+        
+        toast({
+          variant: "destructive",
+          title: mainError,
+          description: additionalInfo,
+          action: errorLines.some(line => line.includes('@edcuareapp.com')) ? (
+            <ToastAction altText="Tentar com email corrigido">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  form.setValue('loginIdentifier', form.getValues('loginIdentifier').replace('@edcuareapp.com', '@educareapp.com'));
+                }}
+              >
+                Corrigir email
+              </Button>
+            </ToastAction>
+          ) : undefined
+        });
+      } else {
+        // Se for uma única linha, usar o formato padrão
+        toast({
+          variant: "destructive",
+          title: "Erro ao fazer login",
+          description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -198,14 +245,20 @@ const EducareLoginForm: React.FC<EducareLoginFormProps> = ({ redirectPath }) => 
               <FormField
                 control={form.control}
                 name="loginIdentifier"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className={fieldState.error ? 'text-red-600' : ''}>Email</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="seu@email.com" 
                         {...field} 
                         disabled={isLoading}
+                        className={fieldState.error ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.clearErrors('loginIdentifier');
+                          form.clearErrors('password');
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -216,27 +269,52 @@ const EducareLoginForm: React.FC<EducareLoginFormProps> = ({ redirectPath }) => 
               <FormField
                 control={form.control}
                 name="password"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel>Senha</FormLabel>
+                      <FormLabel className={fieldState.error ? 'text-red-600' : ''}>Senha</FormLabel>
                       <Button 
                         variant="link" 
                         className="p-0 h-auto text-xs" 
                         type="button"
-                        onClick={() => navigate('/educare-app/auth/reset-password')}
+                        onClick={() => navigate('/educare-app/auth/forgot-password')}
                       >
                         Esqueceu a senha?
                       </Button>
                     </div>
                     <FormControl>
-                      <Input 
-                        type="password" 
-                        {...field} 
-                        disabled={isLoading}
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPassword ? "text" : "password"}
+                          {...field} 
+                          disabled={isLoading}
+                          className={`pr-10 ${fieldState.error ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            form.clearErrors('loginIdentifier');
+                            form.clearErrors('password');
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                          tabIndex={-1}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="sr-only">
+                            {showPassword ? "Ocultar senha" : "Mostrar senha"}
+                          </span>
+                        </Button>
+                      </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-600" />
                   </FormItem>
                 )}
               />

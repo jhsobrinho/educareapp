@@ -4,10 +4,9 @@ import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useJourneyBotSession } from '@/hooks/educare-app/useJourneyBotSession';
-import { supabase } from '@/integrations/supabase/client';
 import { useCustomAuth as useAuth } from '@/hooks/useCustomAuth';
 import { useToast } from '@/hooks/use-toast';
-import { JourneyBotResponse } from '@/types/journey-bot';
+import { JourneyBotResponse, journeyBotService } from '@/services/journeyBotService';
 import JourneyBotQuestion from './JourneyBotQuestion';
 import JourneyBotFeedback from './JourneyBotFeedback';
 import JourneyBotLoading from './JourneyBotLoading';
@@ -49,39 +48,23 @@ const JourneyBotChat: React.FC<JourneyBotChatProps> = ({ child, onBack }) => {
   // Load existing responses
   useEffect(() => {
     const loadResponses = async () => {
-      if (!currentSession || !user) return;
+      if (!user) return;
 
       try {
-        const { data: responsesData, error: responsesError } = await supabase
-          .from('journey_bot_responses')
-          .select('*')
-          .eq('session_id', currentSession.id)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-
-        if (responsesError) {
-          console.error('Error loading responses:', responsesError);
-          return;
-        }
-
-        // Cast the database response to proper types
-        const typedResponses: JourneyBotResponse[] = (responsesData || []).map(response => ({
-          ...response,
-          answer: response.answer as 1 | 2 | 3 // Cast number to union type
-        }));
+        const responsesData = await journeyBotService.getChildResponses(child.id, user.id);
         
-        setResponses(typedResponses);
-        setCurrentQuestionIndex(typedResponses.length);
+        setResponses(responsesData);
+        setCurrentQuestionIndex(responsesData.length);
       } catch (err) {
         console.error('Exception loading responses:', err);
       }
     };
 
     loadResponses();
-  }, [currentSession, user]);
+  }, [user, child.id]);
 
   const handleAnswer = useCallback(async (answer: 1 | 2 | 3) => {
-    if (!currentSession || !user || !questions[currentQuestionIndex]) return;
+    if (!user || !questions[currentQuestionIndex]) return;
 
     setIsAnswering(true);
     setLastAnswer(answer);
@@ -89,59 +72,57 @@ const JourneyBotChat: React.FC<JourneyBotChatProps> = ({ child, onBack }) => {
     try {
       const currentQuestion = questions[currentQuestionIndex];
       const answerText = answer === 1 ? 'Sim - Consegue fazer' : 
-                        answer === 2 ? 'Não - Ainda não consegue' : 
-                        'Não sei - Preciso observar';
+                        answer === 2 ? 'Às vezes consegue' : 
+                        'Ainda não consegue';
 
-      const { data: responseData, error: responseError } = await supabase
-        .from('journey_bot_responses')
-        .insert({
-          session_id: currentSession.id,
-          user_id: user.id,
-          child_id: child.id,
-          question_id: currentQuestion.id,
-          answer: answer,
-          dimension: currentQuestion.dimension,
-          question_text: currentQuestion.question_text,
-          answer_text: answerText
-        })
-        .select()
-        .single();
-
-      if (responseError) {
-        console.error('Error saving response:', responseError);
-        throw responseError;
-      }
-
-      // Cast the response to proper type
-      const typedResponse: JourneyBotResponse = {
-        ...responseData,
-        answer: responseData.answer as 1 | 2 | 3
+      const responseData = {
+        user_id: user.id,
+        child_id: child.id,
+        question_id: currentQuestion.id,
+        answer: answer,
+        answer_text: answerText
       };
 
-      setResponses(prev => [...prev, typedResponse]);
+      const success = await journeyBotService.saveResponse(responseData);
+
+      if (!success) {
+        throw new Error('Falha ao salvar resposta');
+      }
+
+      // Create response object for local state
+      const newResponse: JourneyBotResponse = {
+        id: `temp-${Date.now()}`,
+        user_id: user.id,
+        child_id: child.id,
+        question_id: currentQuestion.id,
+        answer: answer,
+        answer_text: answerText,
+        created_at: new Date().toISOString()
+      };
+
+      setResponses(prev => [...prev, newResponse]);
       setShowFeedback(true);
 
-      // Update session progress
-      const newAnsweredCount = responses.length + 1;
-      await supabase
-        .from('journey_bot_sessions')
-        .update({ 
+      // Update session if exists
+      if (currentSession) {
+        const newAnsweredCount = responses.length + 1;
+        await journeyBotService.updateSession(currentSession.id, {
           answered_questions: newAnsweredCount,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', currentSession.id);
+        });
+      }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving answer:', err);
       toast({
         title: "Erro ao salvar resposta",
-        description: err.message || "Ocorreu um erro inesperado",
+        description: err instanceof Error ? err.message : "Ocorreu um erro inesperado",
         variant: "destructive"
       });
     } finally {
       setIsAnswering(false);
     }
-  }, [currentSession, user, child.id, questions, currentQuestionIndex, responses.length, toast]);
+  }, [user, child.id, questions, currentQuestionIndex, responses.length, toast, currentSession]);
 
   const handleContinue = useCallback(() => {
     setShowFeedback(false);

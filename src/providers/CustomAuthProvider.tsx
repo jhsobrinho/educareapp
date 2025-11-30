@@ -2,7 +2,9 @@ import React, { createContext, useEffect, useState } from 'react';
 import type { AuthContextType } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/hooks/usePermissions';
 import type { Permission, UserRole, User } from '@/types/auth';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { Button } from '@/components/ui/button';
 import { 
   signInWithEmail, 
   signUpWithEmail, 
@@ -10,7 +12,9 @@ import {
   refreshAuthToken,
   sendPhoneVerification,
   verifyPhoneCode,
-  AuthUser
+  loginByPhone,
+  AuthUser,
+  PhoneLoginResult
 } from '@/services/api/authService';
 import { 
   getStoredAuthToken, 
@@ -178,30 +182,120 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
+      console.log(`Tentando login com: ${email}`);
+      console.log(`Senha contém @: ${password.includes('@') ? 'Sim' : 'Não'}`);
+      
+      // Verificar se o email tem erro de digitação comum
+      const correctedEmail = email.includes('@edcuareapp.com') 
+        ? email.replace('@edcuareapp.com', '@educareapp.com')
+        : email;
+      
+      if (correctedEmail !== email) {
+        console.log(`Email corrigido: ${email} -> ${correctedEmail}`);
+        email = correctedEmail;
+      }
+      
+      // Adicionar logs detalhados para debug
+      console.log(`Tentando login com email: ${email} e senha: ${password ? '******' + password.slice(-2) : 'vazia'}`);
+      
       const result = await signInWithEmail(email, password);
+      console.log('Resultado do login:', result);
       
       if (result.success && result.user) {
-        const convertedUser = convertApiUser(result.user);
-        
-        // Debug: verificar se dados foram armazenados
-        console.log('=== DEBUG LOGIN SUCCESS ===');
-        console.log('Token armazenado:', !!getStoredAuthToken());
-        console.log('UserData armazenado:', !!getStoredUserData());
-        console.log('Converted user:', convertedUser);
-        
-        setUser(convertedUser);
-        return convertedUser;
+        try {
+          // Converter o usuário da API para o formato interno
+          const convertedUser = convertApiUser(result.user);
+          
+          // Debug: verificar se dados foram armazenados
+          console.log('=== DEBUG LOGIN SUCCESS ===');
+          console.log('Token armazenado:', !!getStoredAuthToken());
+          console.log('UserData armazenado:', !!getStoredUserData());
+          console.log('Converted user:', convertedUser);
+          
+          // Verificar se o usuário foi convertido corretamente
+          if (!convertedUser || !convertedUser.id) {
+            console.error('Erro na conversão do usuário:', { result, convertedUser });
+            throw new Error('Erro ao processar dados do usuário');
+          }
+          
+          // Atualizar o estado do usuário e retornar
+          setUser(convertedUser);
+          return convertedUser;
+        } catch (conversionError) {
+          console.error('Erro ao processar dados do usuário:', conversionError);
+          throw new Error('Erro ao processar dados do usuário');
+        }
       } else {
-        throw new Error(result.error || 'Falha ao fazer login');
+        // Verificar se é um problema com senha temporária APENAS pela mensagem de erro do backend
+        const isTempPasswordError = result.error && result.error.toLowerCase().includes('temporária');
+        
+        if (isTempPasswordError) {
+          console.log('Detectado erro de senha temporária');
+          let errorMsg = 'Senha temporária inválida ou expirada. Por favor, solicite uma nova senha.';
+          
+          // Verificar se o usuário tem telefone cadastrado
+          if (email.includes('@')) {
+            errorMsg += '\n\nVocê também pode tentar fazer login usando seu telefone.';
+          }
+          
+          throw new Error(errorMsg);
+        } else {
+          // Erro genérico de credenciais inválidas
+          console.error('Falha no login:', result.error || 'Credenciais inválidas');
+          throw new Error(result.error || 'Email ou senha incorretos. Por favor, verifique suas credenciais.');
+        }
       }
     } catch (error) {
       console.error('Erro no login:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      toast({
-        title: 'Erro de autenticação',
-        description: errorMessage || 'Falha ao fazer login. Verifique suas credenciais.',
-        variant: 'destructive'
-      });
+      
+      // Verificar se a mensagem tem múltiplas linhas
+      const errorLines = errorMessage.split('\n\n');
+      
+      // Mensagens mais específicas para diferentes tipos de erro
+      let title = 'Erro de autenticação';
+      let description = errorLines[0];
+      
+      if (errorMessage.includes('Credenciais inválidas')) {
+        description = 'Email ou senha incorretos. Por favor, verifique suas credenciais e tente novamente.';
+      } else if (errorMessage.toLowerCase().includes('senha temporária')) {
+        title = 'Senha temporária inválida';
+        description = 'A senha temporária pode estar incorreta ou expirada. Por favor, solicite uma nova senha.';
+        
+        // Adicionar botão para ir para a tela de login por telefone
+        toast({
+          title: title,
+          description: description,
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Usar telefone">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const phoneTab = document.querySelector('[value="phone"]') as HTMLElement;
+                  if (phoneTab) {
+                    phoneTab.click();
+                  }
+                }}
+              >
+                Usar telefone
+              </Button>
+            </ToastAction>
+          )
+        });
+        return null;
+      }
+      
+      // Para outros tipos de erro
+      if (!errorMessage.toLowerCase().includes('senha temporária')) {
+        toast({
+          title: title,
+          description: description,
+          variant: 'destructive'
+        });
+      }
+      
       return null;
     } finally {
       setIsLoading(false);
@@ -219,18 +313,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     plan_id?: string
   ): Promise<User | null> => {
     // CORREÇÃO: Garantir que os parâmetros sejam mapeados corretamente
-    // Se role contém números (telefone), trocar com phone
     let finalRole = role;
     let finalPhone = phone;
-    let finalPlanId = plan_id;
+    const finalPlanId = typeof plan_id === 'string' ? plan_id : '';
     
-    // Detectar se role contém telefone (apenas números)
+    // Se role contém números (telefone), corrigir os parâmetros
     if (typeof role === 'string' && /^\d+$/.test(role)) {
       console.log('DETECTADO: role contém telefone, corrigindo parâmetros...');
       finalPhone = role;
       finalRole = 'parent'; // Assumir parent como padrão
-      // Preservar plan_id original que foi selecionado no formulário
-      // finalPlanId já está correto, não alterar
     }
     
     console.log('=== DEBUG HANDLEREGISTER - Parâmetros corrigidos ===');
@@ -321,6 +412,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Método para login por telefone com senha temporária
+  const handleLoginByPhone = async (phone: string): Promise<PhoneLoginResult> => {
+    try {
+      setIsLoading(true);
+      
+      console.log(`Iniciando solicitação de senha temporária para: ${phone}`);
+      const result = await loginByPhone(phone);
+      console.log('Resultado da solicitação de senha temporária:', result);
+      
+      if (result.success) {
+        // Mostramos apenas uma mensagem básica, o componente pode mostrar uma mensagem mais detalhada
+        // baseada nos dados retornados (canUseWithEmail, email, etc.)
+        toast({
+          title: 'Senha temporária enviada',
+          description: result.message || 'Uma senha temporária foi enviada para o seu telefone.',
+          variant: 'default'
+        });
+        return result;
+      } else {
+        // Verificar se é um erro de usuário não encontrado
+        const isUserNotFound = result.error && result.error.includes('não encontrado');
+        
+        toast({
+          title: isUserNotFound ? 'Telefone não cadastrado' : 'Erro',
+          description: result.error || 'Falha ao enviar senha temporária',
+          variant: 'destructive'
+        });
+        
+        return result;
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar login por telefone:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      toast({
+        title: 'Erro',
+        description: errorMessage || 'Falha ao enviar senha temporária. Tente novamente.',
+        variant: 'destructive'
+      });
+      
+      // Retornar um objeto de erro formatado corretamente
+      return {
+        success: false,
+        error: errorMessage || 'Erro desconhecido ao solicitar login por telefone'
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Método para verificar código enviado para telefone/WhatsApp
   const handleVerifyPhoneCode = async (phone: string, code: string): Promise<User | null> => {
     try {
@@ -367,7 +508,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     isInitialized,
     isAuthenticated: !!user,
-    signIn: async (email: string, password: string, rememberMe = false): Promise<any> => {
+    signIn: async (email: string, password: string, rememberMe = false): Promise<{error?: {message: string}} | null> => {
       try {
         const user = await handleLogin(email, password, rememberMe);
         if (user) {
@@ -379,7 +520,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: error instanceof Error ? error.message : 'Erro desconhecido' } };
       }
     },
-    signUp: handleRegister,
+    // Adaptador para compatibilidade com a interface AuthContextType
+    signUp: (email: string, password: string, metadata?: Record<string, unknown>): Promise<User | null> => {
+      const name = metadata?.name as string || email.split('@')[0];
+      const role = metadata?.role as UserRole || 'parent';
+      const agreeTerms = metadata?.agreeTerms as boolean || true;
+      const phone = metadata?.phone as string | undefined;
+      const plan_id = metadata?.plan_id as string | undefined;
+      
+      return handleRegister(name, email, password, role, agreeTerms, phone, plan_id);
+    },
     signOut: handleLogout,
     hasRole,
     hasPermission,
@@ -396,6 +546,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateProfile,
     handleSendPhoneVerification,
     handleVerifyPhoneCode,
+    handleLoginByPhone,
     error: null // Adicionando a propriedade error que estava faltando
   };
 
